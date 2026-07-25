@@ -14,7 +14,7 @@ For the OneInbox team: compare the ❌ / ⚠️ rows below against what the prod
 | Verb / noun | Status | Notes |
 | --- | --- | --- |
 | `<Play>` (built-in audio) | ✅ | Asterisk media names |
-| `<Play>` (remote HTTP audio URL) | ❌ | **Critical blocker** — the app's IVR/voicemail prompts are remote (Supabase-hosted) MP3 URLs, so no menu/voicemail flow is portable until fetch-and-cache lands. Small build, high leverage. |
+| `<Play>` (remote HTTP audio URL) | ✅ | Fetched, transcoded (ffmpeg → 8 kHz mono WAV), and cached under Asterisk's sounds dir; verified live. Handles the app's remote MP3 IVR/voicemail prompts. |
 | `<Gather>` (DTMF + `action`) | ✅ | numDigits, timeout, finishOnKey, actionOnEmptyResult, nested prompts, barge-in |
 | `<Dial><Number>` | ✅ | Routed via Routes table |
 | `<Dial><Sip>` (known peer) | ✅ | e.g. Retell AI agent |
@@ -91,8 +91,8 @@ Ordered by leverage-per-effort against what the app actually needs:
   <Step title="Publish the REST API + point one JP DID">
     Expose the REST API (Cloudflare Tunnel) and point a Japan DID's Voice URL at the app's existing inbound function. Small; enables everything downstream.
   </Step>
-  <Step title="Remote <Play> fetch-and-cache (+ <Say> TTS)">
-    Unblocks **all** IVR / forwarding / voicemail-prompt flows — the app's prompts are remote MP3s, so nothing with audio is portable without this. Small build, highest leverage.
+  <Step title="Remote <Play> fetch-and-cache ✅ done (+ <Say> TTS next)">
+    Remote-URL `<Play>` is **live** — unblocks all IVR / forwarding / voicemail-prompt flows (the app's prompts are remote MP3s). `<Say>` TTS is the remaining piece of this step.
   </Step>
   <Step title="<Record> + recording download">
     Voicemail capture and call recording + the authenticated recording-download endpoint the app's processor fetches.
@@ -105,8 +105,8 @@ Ordered by leverage-per-effort against what the app actually needs:
 ## The big remaining items
 
 <AccordionGroup>
-  <Accordion title="#1 Remote <Play> audio (IVR/voicemail prompts) — CRITICAL, small" icon="volume-high">
-    The app generates menu/voicemail prompts as **remote (Supabase-hosted) MP3 URLs** and plays them with `<Play>`. OneML's `<Play>` only plays local Asterisk media names today, so **every menu and voicemail flow is blocked** until OneML fetches + caches remote audio. This is a small build with outsized impact — it should come first among the verb gaps.
+  <Accordion title="#1 Remote <Play> audio (IVR/voicemail prompts) — ✅ DONE" icon="circle-check">
+    The app generates menu/voicemail prompts as **remote (Supabase-hosted) MP3 URLs**. OneML now fetches these at webhook-fetch time, transcodes them (ffmpeg → 8 kHz mono WAV), caches them under Asterisk's sounds dir, and rewrites the verb to a local sound — so `<Play>https://…mp3</Play>` (including nested inside `<Gather>`) plays. **Verified live.** This unblocked all menu/voicemail-prompt flows.
   </Accordion>
   <Accordion title="#2 <Say> TTS" icon="comment">
     A text-to-speech engine for `<Say>` (today parsed but skipped). The app mostly uses `<Play>`, so impact is limited to bare `<Say>` fallbacks — but pair it with #1 so no prompt path goes silent.

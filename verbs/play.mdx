@@ -15,14 +15,17 @@ description: "Play audio to the caller."
 ## Supported today
 
 <Check>Built-in audio files (Asterisk media names, e.g. `hello-world`, `vm-goodbye`).</Check>
+<Check>Remote audio URLs — `<Play>https://.../file.mp3</Play>`.</Check>
 
-The value is the media name. Answering the caller and playback are handled automatically; the program advances when playback finishes.
+For a built-in name, the value is the media name. Answering the caller and playback are handled automatically; the program advances when playback finishes.
 
-## Not yet supported
+### Remote audio URLs
 
-<Warning>
-**Remote audio URLs** (`<Play>https://.../file.mp3</Play>`) are not yet fetched — a fetch-and-cache step is pending. A `<Play>` with an `http(s)://` value is currently skipped. Track on [Compatibility](/compatibility).
-</Warning>
+A `<Play>` (or a `<Play>` nested inside `<Gather>`) with an `http(s)://` value is **fetched, transcoded, and cached** automatically: at webhook-fetch time OneML downloads the URL, converts it to a telephony WAV, caches it under Asterisk's sounds tree, and plays it. The first play of a given URL pays the download+transcode cost; later plays are served from cache.
+
+<Note>
+Common formats (MP3, WAV, …) are supported via ffmpeg. If a URL can't be fetched or transcoded, the `<Play>` is skipped and the program continues — it never fails the call.
+</Note>
 
 ## Attributes
 
