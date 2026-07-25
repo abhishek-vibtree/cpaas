@@ -27,6 +27,15 @@ Dials a new party **into** the room. The destination is resolved through your [R
 </ParamField>
 <ParamField body="Muted" type="boolean" default="false">Join muted.</ParamField>
 <ParamField body="EndConferenceOnExit" type="boolean" default="false">End the room when this participant leaves.</ParamField>
+<ParamField body="StartConferenceOnEnter" type="boolean" default="true">
+  When `false`, this participant waits on hold (music) until a moderator (a participant with `true`) joins — hold-until-moderator.
+</ParamField>
+<ParamField body="Coaching" type="boolean" default="false">
+  Join as a **coach**: hears the conference but is heard only by `CallSidToCoach`. Requires `CallSidToCoach`.
+</ParamField>
+<ParamField body="CallSidToCoach" type="string">
+  The `CallSid` of the participant the coach whispers to. Only meaningful with `Coaching=true`.
+</ParamField>
 <ParamField body="Timeout" type="integer" default="30">Ring timeout in seconds.</ParamField>
 
 <RequestExample>
@@ -90,6 +99,9 @@ Returns the participants currently in the room.
 <ParamField body="Hold" type="boolean">
   Hold (`true`) plays music-on-hold to the leg and mutes it; unhold (`false`) reverses it.
 </ParamField>
+<ParamField body="AnnounceUrl" type="string">
+  Play an announcement to **this participant only**. A remote audio URL is fetched, transcoded, and cached (same pipeline as remote `<Play>`); fires an `announcement` conference event.
+</ParamField>
 
 <RequestExample>
 ```bash Mute
@@ -136,5 +148,5 @@ curl -u AC…:auth_token -X POST \
 </RequestExample>
 
 <Note>
-**Coaching** (`Coaching`, `CallSidToCoach`) on participant add/update is not yet supported. See [Compatibility](/compatibility).
+**Coaching** (`Coaching` + `CallSidToCoach`) is implemented via an ARI snoop — the coach hears the room and is heard only by the coached participant. Validate on a test call before production use.
 </Note>

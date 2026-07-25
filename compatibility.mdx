@@ -49,16 +49,17 @@ For the OneInbox team: compare the ❌ / ⚠️ rows below against what the prod
 | --- | --- | --- |
 | Named rooms (bridge) | ✅ | |
 | `muted`, `beep`, `maxParticipants`, `endConferenceOnExit` | ✅ | |
-| `startConferenceOnEnter="false"` (hold-until-moderator) | ❌ | Default `true` only |
+| `startConferenceOnEnter="false"` (hold-until-moderator) | ✅ | Waiters hold (MOH) until a moderator joins, then join the conversation |
 | Participants API — add | ✅ | Routed PSTN + SIP peers |
 | Participants API — list | ✅ | |
 | Participants API — update (mute / hold) | ✅ | With events |
 | Participants API — remove (kick) | ✅ | |
 | End conference (`Status=completed`) | ✅ | |
-| Coaching / whisper (`coaching`, `callSidToCoach`) | ❌ | |
-| Custom `waitUrl` hold music | ❌ | |
-| Conference recording | ❌ | |
-| `participant-speech-*` / announcement events | ❌ | |
+| Coaching / whisper (`coaching`, `callSidToCoach`) | ✅ | Coach hears the room, heard only by the coached participant (ARI snoop) |
+| Custom `waitUrl` hold music | ⚠️ | Waiters hear MOH; `waitUrl` maps to an MOH class (arbitrary waitUrl-TwiML not run) |
+| Conference recording | ✅ | `record` on `<Conference>` → `recordingStatusCallback` + downloadable (`RecordingSource=Conference`) |
+| Announcements (`AnnounceUrl` on a participant) | ✅ | Plays audio to one participant via the Participants API |
+| `participant-speech-*` (active-speaker events) | ✅ | `statusCallbackEvent="speaker"` → `participant-speech-started`/`-stopped` |
 
 ## REST API
 

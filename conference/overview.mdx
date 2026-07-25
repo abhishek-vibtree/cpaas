@@ -5,6 +5,8 @@ description: "A complete Twilio-compatible conferencing primitive: named rooms, 
 
 OneML conferencing is a complete contact-center primitive — multi-party audio, add/drop participants, mute, hold, supervisor kick, and programmatic teardown — matching Twilio's `<Conference>` verb and Participants API.
 
+Beyond the basics, it also supports **recording** (`record` on `<Conference>` → `recordingStatusCallback` + a downloadable file), **hold-until-moderator** (`startConferenceOnEnter="false"`), **coaching / whisper** (a supervisor heard only by one agent), **announcements** (`AnnounceUrl` to a participant), and **active-speaker events** (`speaker`).
+
 <CardGroup cols={2}>
   <Card title="The verb" icon="code" href="/verbs/conference">
     `<Dial><Conference>` — put a call into a named room, with mute/beep/capacity/end-on-exit.

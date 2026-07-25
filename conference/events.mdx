@@ -9,7 +9,7 @@ A room delivers events to every `statusCallback` registered on it (via `<Confere
 
 | `StatusCallbackEvent` | Subscribe token | Fires when |
 | --- | --- | --- |
-| `conference-start` | `start` | The room is created (first participant) |
+| `conference-start` | `start` | The conference starts (first moderator joins — see hold-until-moderator) |
 | `conference-end` | `end` | The room ends (last out, or `endConferenceOnExit`) |
 | `participant-join` | `join` | A participant joins |
 | `participant-leave` | `leave` | A participant leaves or is kicked |
@@ -17,8 +17,11 @@ A room delivers events to every `statusCallback` registered on it (via `<Confere
 | `participant-unmute` | `mute` | A participant is unmuted |
 | `participant-hold` | `hold` | A participant is put on hold |
 | `participant-unhold` | `hold` | A participant is taken off hold |
+| `participant-speech-started` | `speaker` | A participant starts talking (active-speaker detection) |
+| `participant-speech-stopped` | `speaker` | A participant stops talking |
+| `announcement` | `announcement` | An `AnnounceUrl` announcement plays to a participant |
 
-Subscribe with a space-separated list: `statusCallbackEvent="start end join leave mute hold"`.
+Subscribe with a space-separated list: `statusCallbackEvent="start end join leave mute hold speaker announcement"`. The `speaker` events require opting in (talk detection is enabled only when a subscriber asks for them).
 
 ## Payload
 
@@ -53,6 +56,6 @@ ConferenceSid=CF711bfd946dafce284462634f4ced5647&FriendlyName=support-room-42
 Identical `(callback URL, account)` subscribers are de-duplicated — if several participants register the exact same callback URL, an event is delivered to it once, not once per participant.
 </Note>
 
-## Not yet emitted
-
-`participant-speech-started` / `-stopped` (speaker events) and `announcement-*` events are not yet produced.
+<Note>
+`speaker` (active-speaker) events fire only when a subscriber opts in via `statusCallbackEvent="… speaker"`. `waitUrl` custom hold audio maps to a music-on-hold class; arbitrary waitUrl-TwiML is not executed.
+</Note>

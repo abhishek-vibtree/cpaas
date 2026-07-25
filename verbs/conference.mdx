@@ -21,7 +21,7 @@ Call the same DID from two phones with this document and both land in `support-r
 ## Attributes
 
 <ParamField path="startConferenceOnEnter" type="boolean" default="true">
-  Whether the room "starts" when this participant joins. **Only the default (`true`) is implemented** — `false` (hold-until-moderator) is not yet supported.
+  Whether the conference **starts** when this participant joins. `false` = hold-until-moderator: the participant waits on hold (music) until a participant with `true` joins, then everyone is connected.
 </ParamField>
 <ParamField path="endConferenceOnExit" type="boolean" default="false">
   If `true`, the whole room ends (everyone is removed) when this participant leaves.
@@ -39,7 +39,16 @@ Call the same DID from two phones with this document and both land in `support-r
   URL for room events. See [Conference events](/conference/events).
 </ParamField>
 <ParamField path="statusCallbackEvent" type="string">
-  Space-separated subset of `start end join leave mute hold`.
+  Space-separated subset of `start end join leave mute hold speaker announcement`.
+</ParamField>
+<ParamField path="record" type="string" default="do-not-record">
+  `record-from-start` records the conference mixing bridge. Fires `recordingStatusCallback` and produces a downloadable recording (`RecordingSource=Conference`). See [Recordings](/api-reference/recordings).
+</ParamField>
+<ParamField path="recordingStatusCallback" type="string">
+  URL for the recording-completion callback when `record` is set.
+</ParamField>
+<ParamField path="waitUrl" type="string">
+  Hold audio for `startConferenceOnEnter="false"` waiters. Currently maps to a music-on-hold class (arbitrary waitUrl-TwiML is not executed).
 </ParamField>
 
 ## Controlling a room
@@ -52,13 +61,10 @@ Once participants are in a room, use the [Participants REST API](/api-reference/
 - **Kick** a participant
 - **End** the whole room
 
-## Not yet supported
+## Coaching, hold-until-moderator, recording
 
-<Warning>
-- `startConferenceOnEnter="false"` (hold-until-moderator with wait music)
-- Coaching / whisper (`coaching`, `callSidToCoach`)
-- Custom `waitUrl` hold music
-- Conference recording
+These are all supported — see the [Participants API](/api-reference/participants) for coaching (`Coaching` + `CallSidToCoach`) and announcements (`AnnounceUrl`), and the attributes above for recording and hold-until-moderator.
 
-Track these on [Compatibility](/compatibility).
-</Warning>
+<Note>
+**Coaching / whisper** uses an ARI snoop so the coach hears the room but is heard only by the coached participant. Validate on a test call before production use. **Custom `waitUrl`** audio maps to a music-on-hold class rather than running arbitrary waitUrl-TwiML.
+</Note>
