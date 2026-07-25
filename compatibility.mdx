@@ -18,7 +18,7 @@ For the OneInbox team: compare the ❌ / ⚠️ rows below against what the prod
 | `<Gather>` (DTMF + `action`) | ✅ | numDigits, timeout, finishOnKey, actionOnEmptyResult, nested prompts, barge-in |
 | `<Dial><Number>` | ✅ | Routed via Routes table |
 | `<Dial><Sip>` (known peer) | ✅ | e.g. Retell AI agent |
-| `<Dial><Sip>` (arbitrary URI) | ❌ | Only configured peers today |
+| `<Dial><Sip>` (arbitrary URI) | ⚠️ Opt-in | Supported via a configured PJSIP gateway endpoint (`ONEML_SIP_GATEWAY`) + optional destination allowlist; off by default. `<Sip username/password>` digest auth still deferred. |
 | `<Dial><Conference>` | ✅ | Full attribute set |
 | `<Dial><Client>` | ✅ | WebRTC / browser agents — live (OneML Voice SDK over WSS, DTLS-SRTP); rings a registered browser agent, both call directions verified |
 | `<Dial><Queue>` | ❌ | Parsed, not executed |
@@ -27,7 +27,7 @@ For the OneInbox team: compare the ❌ / ⚠️ rows below against what the prod
 | `<Reject>` | ✅ | |
 | `<Redirect>` | ✅ | |
 | `<Say>` (TTS) | ❌ | Parsed but skipped — no TTS engine yet |
-| `<Pause>` | ❌ | Parsed but skipped |
+| `<Pause>` | ✅ | Silent wait for `length` seconds, then continue |
 | `<Record>` | ✅ | Voicemail capture — beep, `maxLength`, `timeout` (silence), `finishOnKey`, `action` continuation with `RecordingUrl`/`RecordingDuration`/`Digits`. `transcribe`/`trim` parsed, not acted on. |
 | Unknown/future verbs | ✅ | Tolerated (skipped, never fail the doc) |
 

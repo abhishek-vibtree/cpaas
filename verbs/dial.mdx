@@ -45,7 +45,7 @@ Dial a PSTN number. The destination is resolved through your **Routes table** (t
 
 ### `<Sip>`
 
-Dial a SIP destination. Today the URI **host must resolve to a configured peer** (for example, an AI agent trunk such as Retell). Arbitrary/unknown SIP URIs are not yet dialed.
+Dial a SIP destination. A URI whose host resolves to a **configured peer** (for example, an AI agent trunk such as Retell) is dialed directly. **Arbitrary SIP URIs** are also supported when a gateway endpoint is configured (`ONEML_SIP_GATEWAY`, off by default) — the full Request-URI is dialed through it, optionally restricted by a destination allowlist. Per-URI `username`/`password` digest auth is not yet supported.
 
 ```xml
 <Response>

@@ -53,10 +53,16 @@ Transfers control of the call to a new OneML document at another URL. OneML fetc
 
 Attributes `voice`, `language`, and `loop` are parsed for forward compatibility.
 
-## `<Pause>` — not yet executed
+## `<Pause>`
 
-<Warning>
-`<Pause>` is parsed and accepted but currently **skipped** (no silent wait yet).
-</Warning>
+Waits silently for `length` seconds, then continues to the next verb. A `<Pause>` before any answering verb keeps the caller on ringback (the call isn't answered just to wait) — matching Twilio.
 
-<ParamField path="length" type="integer" default="1">Parsed. Seconds to pause.</ParamField>
+```xml
+<Response>
+  <Play>hello-world</Play>
+  <Pause length="3"/>
+  <Play>tt-monkeys</Play>
+</Response>
+```
+
+<ParamField path="length" type="integer" default="1">Seconds to pause (clamped to a sane maximum).</ParamField>
