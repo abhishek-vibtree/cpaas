@@ -1,0 +1,79 @@
+---
+title: "Recordings"
+description: "Download a call recording — the Twilio-compatible recording endpoint your processor fetches after a recordingStatusCallback."
+---
+
+When a `<Dial record="…">` call ends, OneML stores the recording and posts a signed [`recordingStatusCallback`](#the-recordingstatuscallback) with a `RecordingUrl`. Fetch that URL (HTTP Basic auth) to download the audio.
+
+All endpoints are under `/2010-04-01/Accounts/{AccountSid}/Recordings/{RecordingSid}`, authenticated with HTTP Basic (`AccountSid:AuthToken`).
+
+---
+
+## Download a recording
+
+`GET …/Recordings/{RecordingSid}`
+
+The extension selects the representation — matching Twilio's contract:
+
+| URL | Returns | Content-Type |
+| --- | --- | --- |
+| `…/Recordings/{Sid}` | audio (WAV) | `audio/x-wav` |
+| `…/Recordings/{Sid}.wav` | audio (WAV) | `audio/x-wav` |
+| `…/Recordings/{Sid}.mp3` | audio (MP3, transcoded on demand) | `audio/mpeg` |
+| `…/Recordings/{Sid}.json` | metadata | `application/json` |
+
+The app's processor typically fetches `RecordingUrl + ".mp3"`.
+
+<RequestExample>
+```bash Download MP3
+curl -u AC…:auth_token \
+  https://cpaastokyo.oneinbox.ai/2010-04-01/Accounts/AC…/Recordings/RE…​.mp3 \
+  -o recording.mp3
+```
+```bash Metadata
+curl -u AC…:auth_token \
+  https://cpaastokyo.oneinbox.ai/2010-04-01/Accounts/AC…/Recordings/RE…​.json
+```
+</RequestExample>
+
+<ResponseExample>
+```json .json
+{
+  "sid": "RE…",
+  "account_sid": "AC…",
+  "media_url": "https://cpaastokyo.oneinbox.ai/2010-04-01/Accounts/AC…/Recordings/RE…",
+  "status": "completed",
+  "channels": 1,
+  "source": "DialVerb"
+}
+```
+</ResponseExample>
+
+An unknown or malformed `RecordingSid` returns `404`; a missing or wrong `AuthToken` returns `401`.
+
+---
+
+## The `recordingStatusCallback`
+
+Set on the `<Dial>` (see [`<Dial>` recording](/verbs/dial#recording)), this callback is a signed POST fired when the recording finishes.
+
+<ResponseField name="RecordingSid" type="string">The recording's ID (`RE` + 32 hex).</ResponseField>
+<ResponseField name="RecordingUrl" type="string">The extension-less download URL. Append `.mp3` / `.wav` / `.json`.</ResponseField>
+<ResponseField name="RecordingStatus" type="string">`completed`.</ResponseField>
+<ResponseField name="RecordingDuration" type="string">Recording length in seconds.</ResponseField>
+<ResponseField name="RecordingChannels" type="string">`1` (mono mix in v1).</ResponseField>
+<ResponseField name="RecordingSource" type="string">`DialVerb`.</ResponseField>
+<ResponseField name="CallSid" type="string">The recorded call.</ResponseField>
+<ResponseField name="AccountSid" type="string">The owning account.</ResponseField>
+
+```
+RecordingSid=RE…&RecordingUrl=https://cpaastokyo.oneinbox.ai/2010-04-01/Accounts/AC…/Recordings/RE…
+&RecordingStatus=completed&RecordingDuration=16&RecordingChannels=1
+&RecordingSource=DialVerb&CallSid=…&AccountSid=AC…
+```
+
+The POST is signed with the account's AuthToken (`X-Twilio-Signature` + `X-OneML-Signature`), like every other OneML callback — see [Signatures](/signatures).
+
+<Note>
+**v1 scope:** call recording via `record` on `<Dial>` (mono mix). A `Recordings.json` list resource, the standalone `<Record>` verb (voicemail capture), and true dual-channel stereo are planned. Track them on [Compatibility](/compatibility).
+</Note>

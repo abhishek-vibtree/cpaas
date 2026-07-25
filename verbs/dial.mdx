@@ -19,6 +19,15 @@ description: "Connect the caller to another party — a phone number, a SIP peer
 <ParamField path="method" type="string" default="POST">
   HTTP method for the `action` request.
 </ParamField>
+<ParamField path="record" type="string" default="do-not-record">
+  Record the connected call. Any Twilio value other than `do-not-record` enables it: `record-from-answer`, `record-from-answer-dual`, `record-from-ringing`, `record-from-ringing-dual`. Recording starts when the two legs connect. See [Recording](#recording) below.
+</ParamField>
+<ParamField path="recordingStatusCallback" type="string">
+  URL that receives the signed recording-completion callback (`RecordingUrl`, `RecordingSid`, `RecordingDuration`).
+</ParamField>
+<ParamField path="recordingStatusCallbackEvent" type="string" default="completed">
+  Which recording events to send. `completed` is emitted when the recording finishes.
+</ParamField>
 
 ## Nouns
 
@@ -57,6 +66,25 @@ Put the caller into a named room. See the dedicated [Conference](/verbs/conferen
 
 Add `statusCallback` + `statusCallbackEvent` to a `<Number>` or `<Sip>` noun to receive `initiated` / `ringing` / `answered` / `completed` events for that leg. See [Call status callbacks](/webhooks/status-callbacks).
 
+## Recording
+
+Add `record` to record the connected call. Recording begins when the two legs bridge, and when the call ends OneML posts a signed callback to `recordingStatusCallback` and makes the audio available at the [recording download endpoint](/api-reference/recordings).
+
+```xml
+<Response>
+  <Dial record="record-from-answer-dual"
+        recordingStatusCallback="https://your-app.example/recording-status">
+    <Number>+819012345678</Number>
+  </Dial>
+</Response>
+```
+
+The callback carries `RecordingUrl`, `RecordingSid`, `RecordingDuration`, and `RecordingStatus=completed`. Fetch `RecordingUrl` (or `RecordingUrl + ".mp3"`) with HTTP Basic auth to download the audio.
+
 <Note>
-**Not yet supported on `<Dial>`:** the `<Client>` noun (WebRTC browser agents), the `<Queue>` noun, `record="…"` call recording, and `answerOnBridge`/recording attributes are parsed but not acted on. Track these on [Compatibility](/compatibility).
+v1 records a **mono** mix of the call (both parties combined) — suitable for transcription. The `-dual` values are accepted; true dual-channel (separate stereo tracks) is a planned refinement. See [Recordings](/api-reference/recordings).
+</Note>
+
+<Note>
+**Not yet supported on `<Dial>`:** the `<Client>` noun (WebRTC browser agents) and the `<Queue>` noun are parsed but not acted on. Track these on [Compatibility](/compatibility).
 </Note>

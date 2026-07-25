@@ -63,3 +63,7 @@ Your endpoint should return `2xx` (Twilio ignores the body — `204 No Content` 
 <Note>
 Conference rooms have their own event stream (`participant-join`, `participant-leave`, etc.). See [Conference events](/conference/events).
 </Note>
+
+<Note>
+Call **recording** has a separate callback — `recordingStatusCallback` on `<Dial>` — that fires when the recording finishes, carrying `RecordingUrl` / `RecordingSid` / `RecordingDuration`. See [Recordings](/api-reference/recordings).
+</Note>

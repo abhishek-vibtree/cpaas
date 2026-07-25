@@ -22,7 +22,7 @@ For the OneInbox team: compare the ❌ / ⚠️ rows below against what the prod
 | `<Dial><Conference>` | ✅ | Full attribute set |
 | `<Dial><Client>` | ❌ | **WebRTC / browser agents — not implemented** |
 | `<Dial><Queue>` | ❌ | Parsed, not executed |
-| `<Dial record="…">` | ❌ | Call recording not implemented |
+| `<Dial record="…">` | ✅ | Call recording — records the bridge (mono mix in v1), fires `recordingStatusCallback`, downloadable as mp3/wav. `record-from-answer[-dual]` / `record-from-ringing[-dual]` all record on connect. |
 | `<Hangup>` | ✅ | |
 | `<Reject>` | ✅ | |
 | `<Redirect>` | ✅ | |
@@ -41,7 +41,7 @@ For the OneInbox team: compare the ❌ / ⚠️ rows below against what the prod
 | `<Gather action>` continuation | ✅ | `Digits` |
 | Call status callbacks | ✅ | `initiated`/`ringing`/`answered`/`completed` |
 | Conference status callbacks | ✅ | start/end/join/leave/mute/unmute/hold/unhold |
-| `recordingStatusCallback` | ❌ | Depends on recording |
+| `recordingStatusCallback` | ✅ | Fired on recording completion — `RecordingUrl`, `RecordingSid`, `RecordingDuration`, `RecordingStatus`; signed like every other callback |
 
 ## Conference
 
@@ -69,7 +69,8 @@ For the OneInbox team: compare the ❌ / ⚠️ rows below against what the prod
 | `POST /Calls.json` (CreateCall) | ❌ | Outbound origination via REST — not built |
 | `POST /Calls/{sid}.json` (modify a live call) | ❌ | |
 | `/Messages.json` (SMS) | ❌ | Not on the voice stack |
-| `/Recordings` (list / download) | ❌ | Needed by recording-download consumers |
+| `GET /Recordings/{sid}[.mp3\|.wav\|.json]` (download) | ✅ | Basic-auth, account-scoped; mp3 transcoded on demand. This is what `twilio-call-process` fetches. |
+| `GET /Recordings.json` (list) | ❌ | No recording index/list resource yet |
 | Number provisioning | ❌ | Managed in the dashboard, not via REST |
 
 ## Platform
@@ -78,10 +79,10 @@ For the OneInbox team: compare the ❌ / ⚠️ rows below against what the prod
 | --- | --- | --- |
 | Multi-tenant accounts (AccountSid/AuthToken) | ✅ | |
 | Outbound routing via Routes table | ✅ | dial + CLI formatting |
-| Public REST API (via Cloudflare Tunnel) | ⚠️ Pending | Requires `ONEML_INTERNAL_SECRET` set on both units; ingress scoped to `/2010-04-01/*` + `/health` |
+| Public REST API (via Cloudflare Tunnel) | ✅ | Live at the public base URL; ingress scoped to `/2010-04-01/*` + `/health`, internal endpoints shared-secret guarded |
 | Billing (CGRateS) | ❌ | Planned |
 | Sub-account model | ❌ | Single account tier today |
-| Recording storage + transcription | ❌ | |
+| Recording storage + download | ✅ | Bridge recordings stored on the box, served via the account-scoped download endpoint. Transcription stays app-side (Deepgram). |
 
 ## Recommended migration sequence
 
@@ -94,8 +95,8 @@ Ordered by leverage-per-effort against what the app actually needs:
   <Step title="Remote <Play> fetch-and-cache ✅ done (+ <Say> TTS next)">
     Remote-URL `<Play>` is **live** — unblocks all IVR / forwarding / voicemail-prompt flows (the app's prompts are remote MP3s). `<Say>` TTS is the remaining piece of this step.
   </Step>
-  <Step title="<Record> + recording download">
-    Voicemail capture and call recording + the authenticated recording-download endpoint the app's processor fetches.
+  <Step title="Call recording ✅ done (+ voicemail <Record> next)">
+    `record` on `<Dial>` + `recordingStatusCallback` + the authenticated mp3 download endpoint the app's processor fetches are **live**. Remaining: the standalone `<Record>` verb for voicemail capture.
   </Step>
   <Step title="<Client> / WebRTC platform">
     The human browser softphone. Largest lift; tackle last as its own sub-project.
@@ -111,8 +112,10 @@ Ordered by leverage-per-effort against what the app actually needs:
   <Accordion title="#2 <Say> TTS" icon="comment">
     A text-to-speech engine for `<Say>` (today parsed but skipped). The app mostly uses `<Play>`, so impact is limited to bare `<Say>` fallbacks — but pair it with #1 so no prompt path goes silent.
   </Accordion>
-  <Accordion title="#3 <Record> + recordings" icon="microphone">
-    `<Record>`, `record` on `<Dial>` (the app uses `record="record-from-answer-dual"`), `RecordingUrl`, `recordingStatusCallback`, recording storage, and a Twilio-compatible recording-download REST endpoint (the app's `twilio-call-process` fetches the mp3 and transcribes via Deepgram).
+  <Accordion title="#3 <Record> + recordings — ⚠️ call recording DONE, voicemail <Record> pending" icon="microphone">
+    **Done:** `record` on `<Dial>` (the app's `record="record-from-answer-dual"`) records the connected bridge, fires `recordingStatusCallback` (`RecordingUrl` / `RecordingSid` / `RecordingDuration`), and serves the audio from a Basic-auth, account-scoped download endpoint (`.mp3` transcoded on demand) — exactly what `twilio-call-process` fetches for Deepgram. v1 stores a **mono** mix; true dual-channel stereo is a refinement.
+
+    **Pending:** the standalone `<Record>` verb (voicemail capture with `maxLength` / `finishOnKey` / `transcribe`), and a `/Recordings.json` list resource.
   </Accordion>
   <Accordion title="#4 <Client> / WebRTC — the full Twilio Client platform (largest)" icon="globe">
     Not just media. The app's human-agent stack is the **Twilio Voice SDK** and bundles:
