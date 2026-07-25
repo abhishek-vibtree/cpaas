@@ -1,0 +1,58 @@
+---
+title: "Conference events"
+description: "The signed status callbacks a conference room emits: start, end, join, leave, mute, hold."
+---
+
+A room delivers events to every `statusCallback` registered on it (via `<Conference statusCallback>` or a participant's subscription). Each is a signed POST.
+
+## Events
+
+| `StatusCallbackEvent` | Subscribe token | Fires when |
+| --- | --- | --- |
+| `conference-start` | `start` | The room is created (first participant) |
+| `conference-end` | `end` | The room ends (last out, or `endConferenceOnExit`) |
+| `participant-join` | `join` | A participant joins |
+| `participant-leave` | `leave` | A participant leaves or is kicked |
+| `participant-mute` | `mute` | A participant is muted |
+| `participant-unmute` | `mute` | A participant is unmuted |
+| `participant-hold` | `hold` | A participant is put on hold |
+| `participant-unhold` | `hold` | A participant is taken off hold |
+
+Subscribe with a space-separated list: `statusCallbackEvent="start end join leave mute hold"`.
+
+## Payload
+
+<ResponseField name="ConferenceSid" type="string">Deterministic room id (`CF…`).</ResponseField>
+<ResponseField name="FriendlyName" type="string">The room name.</ResponseField>
+<ResponseField name="StatusCallbackEvent" type="string">One of the values above.</ResponseField>
+<ResponseField name="CallSid" type="string">The participant involved (absent on `conference-start`/`conference-end`).</ResponseField>
+<ResponseField name="Muted" type="string">`true`/`false` — the participant's mute state (participant events).</ResponseField>
+<ResponseField name="Hold" type="string">`true`/`false` — the participant's hold state (participant events).</ResponseField>
+<ResponseField name="EndConferenceOnExit" type="string">`true`/`false`.</ResponseField>
+<ResponseField name="ConferenceDuration" type="string">Seconds; present on `conference-end`.</ResponseField>
+<ResponseField name="Reason" type="string">Why the room ended; present on `conference-end`.</ResponseField>
+<ResponseField name="AccountSid" type="string">The owning account.</ResponseField>
+
+### Example — `participant-join`
+
+```
+ConferenceSid=CF711bfd946dafce284462634f4ced5647&FriendlyName=support-room-42
+&StatusCallbackEvent=participant-join&CallSid=1784938253.0
+&Muted=false&Hold=false&EndConferenceOnExit=false&AccountSid=ACxxxx
+```
+
+### Example — `conference-end`
+
+```
+ConferenceSid=CF711bfd946dafce284462634f4ced5647&FriendlyName=support-room-42
+&StatusCallbackEvent=conference-end&ConferenceDuration=104
+&Reason=last-participant-left&AccountSid=ACxxxx
+```
+
+<Note>
+Identical `(callback URL, account)` subscribers are de-duplicated — if several participants register the exact same callback URL, an event is delivered to it once, not once per participant.
+</Note>
+
+## Not yet emitted
+
+`participant-speech-started` / `-stopped` (speaker events) and `announcement-*` events are not yet produced.

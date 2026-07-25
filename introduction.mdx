@@ -1,0 +1,62 @@
+---
+title: "Introduction"
+description: "OneML is a Twilio-compatible CPaaS for OneInbox, built on Asterisk/ARI. It speaks the TwiML webhook contract and a subset of the Twilio REST API, so an existing Twilio voice app works by changing the API domain."
+---
+
+## What OneML is
+
+**OneML** is OneInbox's own programmable-voice platform. It is a **strict superset of TwiML**: the markup on the wire is TwiML (same `<Response>` root, same verbs, same attributes, same webhook parameter names), branded OneML. An application written for Twilio Programmable Voice runs against OneML by pointing its webhook/API domain at OneML — no dialect translation.
+
+<CardGroup cols={2}>
+  <Card title="Same webhook contract" icon="webhook">
+    Your number's Voice URL returns TwiML/OneML. OneML fetches it, executes the verbs against a real media engine, and posts the same callbacks Twilio does.
+  </Card>
+  <Card title="Same REST shape" icon="server">
+    Resources live under <code>/2010-04-01/Accounts/&#123;AccountSid&#125;/…</code> with HTTP Basic auth — a drop-in for <code>api.twilio.com</code>.
+  </Card>
+  <Card title="Same signature" icon="shield-check">
+    Every outbound webhook is signed with <code>X-Twilio-Signature</code> (HMAC-SHA1), byte-identical to Twilio's algorithm, plus an <code>X-OneML-Signature</code> alias.
+  </Card>
+  <Card title="Runs on your carrier" icon="phone">
+    Calls terminate on your own Asterisk/PJSIP trunks and DID inventory (Japan today), routed by your dashboard's Routes table.
+  </Card>
+</CardGroup>
+
+## What "change the domain" means (and doesn't)
+
+<Note>
+The drop-in promise holds for the **HTTP contract** — TwiML webhooks and the REST resource shape. It does **not** cover the official Twilio SDKs (they hardcode `api.twilio.com`; use a base-URL override or raw HTTP), nor the global carrier network/number inventory (OneML is regional).
+</Note>
+
+## Where OneML is today
+
+OneML already runs, live on real calls, a large fraction of the Twilio voice contract:
+
+- **Verbs:** `<Play>` (local audio), `<Gather>` (DTMF), `<Dial>` with `<Number>`, `<Sip>`, and `<Conference>` nouns, `<Hangup>`, `<Reject>`, `<Redirect>`.
+- **Continuations:** `<Dial action>` and `<Gather action>` callbacks (DialCallStatus / Digits).
+- **Status callbacks:** call-progress (`initiated`/`ringing`/`answered`/`completed`), signed.
+- **Conference:** the full `<Conference>` verb plus the Participants REST API (add, list, mute, hold, kick, end) and every conference status event.
+- **Outbound routing:** REST-originated calls resolve through your dashboard Routes table (trunk + number/CLI formatting).
+
+For a precise implemented-vs-pending matrix, see [Compatibility & roadmap](/compatibility).
+
+<Warning>
+Some Twilio features are **not yet implemented**: `<Client>`/WebRTC (browser agents), `<Record>` + recordings, `<Say>` TTS, `<Play>` of remote audio URLs, SMS (`/Messages.json`), and REST `CreateCall` (`/Calls.json`). These are tracked on the [Compatibility](/compatibility) page.
+</Warning>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture" icon="sitemap" href="/architecture">
+    How OneML executes a call: the control plane, the executor, and the webhook fetch.
+  </Card>
+  <Card title="Authentication" icon="key" href="/authentication">
+    AccountSid / AuthToken, HTTP Basic, and request signing.
+  </Card>
+  <Card title="Voice webhooks" icon="phone-arrow-down-left" href="/webhooks/voice-request">
+    The request OneML sends to your Voice URL and the OneML it expects back.
+  </Card>
+  <Card title="Conference" icon="users" href="/conference/overview">
+    Rooms, participants, and the control API.
+  </Card>
+</CardGroup>

@@ -1,0 +1,31 @@
+---
+title: "<Play>"
+description: "Play audio to the caller."
+---
+
+`<Play>` plays an audio file to the caller, then advances to the next verb.
+
+```xml
+<Response>
+  <Play>welcome</Play>
+  <Hangup/>
+</Response>
+```
+
+## Supported today
+
+<Check>Built-in audio files (Asterisk media names, e.g. `hello-world`, `vm-goodbye`).</Check>
+
+The value is the media name. Answering the caller and playback are handled automatically; the program advances when playback finishes.
+
+## Not yet supported
+
+<Warning>
+**Remote audio URLs** (`<Play>https://.../file.mp3</Play>`) are not yet fetched — a fetch-and-cache step is pending. A `<Play>` with an `http(s)://` value is currently skipped. Track on [Compatibility](/compatibility).
+</Warning>
+
+## Attributes
+
+<ParamField path="loop" type="integer" default="1">
+  Parsed. Repeat count for the audio.
+</ParamField>

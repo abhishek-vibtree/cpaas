@@ -1,0 +1,48 @@
+---
+title: "REST API"
+description: "The OneML REST API mirrors Twilio's resource shape under /2010-04-01/Accounts/{AccountSid}."
+---
+
+The OneML REST API is a drop-in for the Twilio REST API: same base path, same HTTP Basic auth, JSON responses with snake_case fields.
+
+## Base URL
+
+```
+https://api.your-domain.com
+```
+
+<Note>
+Point your Twilio client's base URL here. The Twilio helper SDKs hardcode `api.twilio.com`, so use a base-URL/`edge`/custom-httpClient override, or call the endpoints with raw HTTP.
+</Note>
+
+## Authentication
+
+HTTP Basic — `AccountSid` as username, `AuthToken` as password. See [Authentication](/authentication).
+
+```bash
+curl -u AC…:auth_token https://api.your-domain.com/2010-04-01/Accounts/AC….json
+```
+
+## Conventions
+
+- Paths are prefixed `/2010-04-01/Accounts/{AccountSid}`.
+- Request bodies are `application/x-www-form-urlencoded` (like Twilio).
+- Responses are JSON. Resource fields use snake_case (`account_sid`, `call_sid`, …).
+- An account may only access its own resources.
+
+## Available resources
+
+<CardGroup cols={2}>
+  <Card title="Account" icon="id-card" href="/api-reference/account">
+    Fetch the authenticated account.
+  </Card>
+  <Card title="Conference Participants" icon="users" href="/api-reference/participants">
+    Add, list, update (mute/hold), remove participants; end a room.
+  </Card>
+</CardGroup>
+
+## Not yet available
+
+<Warning>
+`Calls` (CreateCall / outbound origination), `Messages` (SMS), and `Recordings` (recording download) resources are **not yet implemented**. See [Compatibility](/compatibility).
+</Warning>

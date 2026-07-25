@@ -1,0 +1,61 @@
+---
+title: "Action continuation"
+description: "<Dial> and <Gather> can hand control back to your app: OneML POSTs the outcome to the action URL and executes the OneML returned."
+---
+
+`<Dial>` and `<Gather>` are not terminal. When they carry an `action` attribute, OneML POSTs the outcome to that URL and runs whatever OneML comes back — this is how ring chains, IVR menus, and multi-step workflows are built.
+
+## `<Dial action>`
+
+When the dialed leg ends (answered→completed, no-answer, or failed), OneML fetches the `action` URL with the dial outcome. The caller stays on the line and continues with the returned document.
+
+<ParamField body="DialCallStatus" type="string">
+  `completed` (the callee answered and the call finished), `no-answer` (rang out / rejected), or `failed` (unresolvable destination).
+</ParamField>
+<ParamField body="DialCallDuration" type="string">
+  Talk time in seconds for the dialed leg (0 if never answered).
+</ParamField>
+
+```xml
+<Response>
+  <Dial timeout="20" action="https://your-app.example/after-dial">
+    <Number>+815000000000</Number>
+  </Dial>
+</Response>
+```
+
+```xml
+<!-- your /after-dial returns, e.g. on no-answer: -->
+<Response>
+  <Play>sorry-nobody-answered</Play>
+  <Hangup/>
+</Response>
+```
+
+<Note>
+If `<Dial>` has **no** `action`, control falls through to the next verb in the current document, or the call hangs up if there are none — matching Twilio.
+</Note>
+
+## `<Gather action>`
+
+When digits are collected (or the gather times out with `actionOnEmptyResult`), OneML POSTs them to the `action` URL.
+
+<ParamField body="Digits" type="string">
+  The keys the caller pressed (empty string on an empty timeout).
+</ParamField>
+
+```xml
+<Response>
+  <Gather numDigits="1" timeout="8" action="https://your-app.example/menu">
+    <Play>press-1-or-2</Play>
+  </Gather>
+  <Play>no-input-goodbye</Play>
+  <Hangup/>
+</Response>
+```
+
+Your `/menu` branches on `Digits` and returns the next step. Because the next step can itself contain another `<Gather action>`, you can chain menus indefinitely.
+
+## Signing & method
+
+Continuation requests are **signed** exactly like the initial Voice URL fetch (`X-Twilio-Signature` / `X-OneML-Signature`) and use the same HTTP method as the DID's `voice_method`.

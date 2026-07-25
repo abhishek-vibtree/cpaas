@@ -1,0 +1,64 @@
+---
+title: "<Conference>"
+description: "Put the caller into a named conference room — a persistent multi-party bridge with mute, hold, capacity, and lifecycle control."
+---
+
+`<Dial><Conference>` places the caller into a **named room**. The room is a persistent, multi-party audio bridge: any number of calls (and REST-added participants) can join it. It outlives any single member — only the last member leaving, or a member with `endConferenceOnExit`, tears it down.
+
+```xml
+<Response>
+  <Dial>
+    <Conference statusCallback="https://your-app.example/conf-events"
+                statusCallbackEvent="start end join leave mute hold">
+      support-room-42
+    </Conference>
+  </Dial>
+</Response>
+```
+
+Call the same DID from two phones with this document and both land in `support-room-42` and hear each other.
+
+## Attributes
+
+<ParamField path="startConferenceOnEnter" type="boolean" default="true">
+  Whether the room "starts" when this participant joins. **Only the default (`true`) is implemented** — `false` (hold-until-moderator) is not yet supported.
+</ParamField>
+<ParamField path="endConferenceOnExit" type="boolean" default="false">
+  If `true`, the whole room ends (everyone is removed) when this participant leaves.
+</ParamField>
+<ParamField path="muted" type="boolean" default="false">
+  Join muted (the participant's audio is not sent to the room).
+</ParamField>
+<ParamField path="beep" type="string" default="true">
+  Play a beep into the room when this participant joins.
+</ParamField>
+<ParamField path="maxParticipants" type="integer" default="250">
+  Reject a join once the room is full.
+</ParamField>
+<ParamField path="statusCallback" type="string">
+  URL for room events. See [Conference events](/conference/events).
+</ParamField>
+<ParamField path="statusCallbackEvent" type="string">
+  Space-separated subset of `start end join leave mute hold`.
+</ParamField>
+
+## Controlling a room
+
+Once participants are in a room, use the [Participants REST API](/api-reference/participants) to:
+
+- **Add** a participant (dial a phone/SIP destination into the room)
+- **List** the participants
+- **Mute / hold** a participant
+- **Kick** a participant
+- **End** the whole room
+
+## Not yet supported
+
+<Warning>
+- `startConferenceOnEnter="false"` (hold-until-moderator with wait music)
+- Coaching / whisper (`coaching`, `callSidToCoach`)
+- Custom `waitUrl` hold music
+- Conference recording
+
+Track these on [Compatibility](/compatibility).
+</Warning>

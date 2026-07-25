@@ -1,0 +1,54 @@
+---
+title: "Conference overview"
+description: "A complete Twilio-compatible conferencing primitive: named rooms, a Participants REST control plane, and a full event stream."
+---
+
+OneML conferencing is a complete contact-center primitive — multi-party audio, add/drop participants, mute, hold, supervisor kick, and programmatic teardown — matching Twilio's `<Conference>` verb and Participants API.
+
+<CardGroup cols={2}>
+  <Card title="The verb" icon="code" href="/verbs/conference">
+    `<Dial><Conference>` — put a call into a named room, with mute/beep/capacity/end-on-exit.
+  </Card>
+  <Card title="Participants API" icon="users-gear" href="/api-reference/participants">
+    Add, list, mute, hold, kick participants, and end a room over REST.
+  </Card>
+  <Card title="Events" icon="bell" href="/conference/events">
+    `conference-start/end`, `participant-join/leave/mute/unmute/hold/unhold`.
+  </Card>
+  <Card title="Routed participants" icon="route" href="/outbound/routing">
+    Dialing a participant into a room resolves through your Routes table (trunk + formatting).
+  </Card>
+</CardGroup>
+
+## Concepts
+
+<ParamField path="Room (FriendlyName)" type="string">
+  A conference is identified by its **name**. The name maps deterministically to a `ConferenceSid` (`CF…`) that is stable for the room's life and used in every event and API response. Joining a name that doesn't exist creates the room; the last participant leaving destroys it.
+</ParamField>
+
+<ParamField path="Participant (CallSid)" type="string">
+  Each leg in a room is a participant, addressed by its `CallSid`. Inbound callers join via the `<Conference>` verb; outbound parties are dialed in via the Participants API.
+</ParamField>
+
+## A worked scenario
+
+The full lifecycle, as it runs live:
+
+<Steps>
+  <Step title="Caller A joins">
+    A calls a DID whose OneML returns `<Dial><Conference>room</Conference></Dial>`. The room is created. Events: `conference-start`, `participant-join (A)`.
+  </Step>
+  <Step title="Dial B into the room">
+    `POST …/Conferences/room/Participants` with `To=+81…`. OneML routes and dials B. Events on B's leg: `initiated`, `ringing`, then `answered`; and on the room: `participant-join (B)`.
+  </Step>
+  <Step title="Control the room">
+    Mute, hold, or kick a participant over REST — each mute/hold emits `participant-mute` / `participant-hold` (and the inverses).
+  </Step>
+  <Step title="Tear down">
+    A participant leaving fires `participant-leave`; the last one out fires `conference-end` with `ConferenceDuration`. Ending via the API hangs everyone up and emits the same events.
+  </Step>
+</Steps>
+
+<Note>
+Conference `statusCallback` is **room-scoped**: once a participant registers it, it persists for the room's lifetime — so `participant-leave` and `conference-end` still fire after the participant who set it has left.
+</Note>

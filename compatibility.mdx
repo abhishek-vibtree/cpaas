@@ -1,0 +1,112 @@
+---
+title: "Compatibility & roadmap"
+description: "Exactly what OneML implements today versus what remains, mapped to the Twilio contract. Use this to decide what's left for a full OneInbox cutover."
+---
+
+This page is the source of truth for **what works today** and **what is still pending**. Everything marked ✅ has been verified on live calls.
+
+<Note>
+For the OneInbox team: compare the ❌ / ⚠️ rows below against what the production app actually uses. Anything the app relies on that is not ✅ is remaining work.
+</Note>
+
+## Voice verbs
+
+| Verb / noun | Status | Notes |
+| --- | --- | --- |
+| `<Play>` (built-in audio) | ✅ | Asterisk media names |
+| `<Play>` (remote HTTP audio URL) | ❌ | Fetch-and-cache pending |
+| `<Gather>` (DTMF + `action`) | ✅ | numDigits, timeout, finishOnKey, actionOnEmptyResult, nested prompts, barge-in |
+| `<Dial><Number>` | ✅ | Routed via Routes table |
+| `<Dial><Sip>` (known peer) | ✅ | e.g. Retell AI agent |
+| `<Dial><Sip>` (arbitrary URI) | ❌ | Only configured peers today |
+| `<Dial><Conference>` | ✅ | Full attribute set |
+| `<Dial><Client>` | ❌ | **WebRTC / browser agents — not implemented** |
+| `<Dial><Queue>` | ❌ | Parsed, not executed |
+| `<Dial record="…">` | ❌ | Call recording not implemented |
+| `<Hangup>` | ✅ | |
+| `<Reject>` | ✅ | |
+| `<Redirect>` | ✅ | |
+| `<Say>` (TTS) | ❌ | Parsed but skipped — no TTS engine yet |
+| `<Pause>` | ❌ | Parsed but skipped |
+| `<Record>` | ❌ | Not implemented |
+| Unknown/future verbs | ✅ | Tolerated (skipped, never fail the doc) |
+
+## Webhooks & callbacks
+
+| Capability | Status | Notes |
+| --- | --- | --- |
+| Voice URL fetch + execution | ✅ | Per-DID `voice_url`, with fallback URL + routing-engine fallback |
+| Signed requests (`X-Twilio-Signature`) | ✅ | Twilio-exact HMAC-SHA1; `X-OneML-Signature` alias |
+| `<Dial action>` continuation | ✅ | `DialCallStatus`, `DialCallDuration` |
+| `<Gather action>` continuation | ✅ | `Digits` |
+| Call status callbacks | ✅ | `initiated`/`ringing`/`answered`/`completed` |
+| Conference status callbacks | ✅ | start/end/join/leave/mute/unmute/hold/unhold |
+| `recordingStatusCallback` | ❌ | Depends on recording |
+
+## Conference
+
+| Capability | Status | Notes |
+| --- | --- | --- |
+| Named rooms (bridge) | ✅ | |
+| `muted`, `beep`, `maxParticipants`, `endConferenceOnExit` | ✅ | |
+| `startConferenceOnEnter="false"` (hold-until-moderator) | ❌ | Default `true` only |
+| Participants API — add | ✅ | Routed PSTN + SIP peers |
+| Participants API — list | ✅ | |
+| Participants API — update (mute / hold) | ✅ | With events |
+| Participants API — remove (kick) | ✅ | |
+| End conference (`Status=completed`) | ✅ | |
+| Coaching / whisper (`coaching`, `callSidToCoach`) | ❌ | |
+| Custom `waitUrl` hold music | ❌ | |
+| Conference recording | ❌ | |
+| `participant-speech-*` / announcement events | ❌ | |
+
+## REST API
+
+| Resource | Status | Notes |
+| --- | --- | --- |
+| `GET /Accounts/{sid}.json` | ✅ | Returns AuthToken to owner |
+| Conference Participants (all verbs) | ✅ | See [Participants](/api-reference/participants) |
+| `POST /Calls.json` (CreateCall) | ❌ | Outbound origination via REST — not built |
+| `POST /Calls/{sid}.json` (modify a live call) | ❌ | |
+| `/Messages.json` (SMS) | ❌ | Not on the voice stack |
+| `/Recordings` (list / download) | ❌ | Needed by recording-download consumers |
+| Number provisioning | ❌ | Managed in the dashboard, not via REST |
+
+## Platform
+
+| Item | Status | Notes |
+| --- | --- | --- |
+| Multi-tenant accounts (AccountSid/AuthToken) | ✅ | |
+| Outbound routing via Routes table | ✅ | dial + CLI formatting |
+| Public REST API (via Cloudflare Tunnel) | ⚠️ Pending | Requires `ONEML_INTERNAL_SECRET` set on both units; ingress scoped to `/2010-04-01/*` + `/health` |
+| Billing (CGRateS) | ❌ | Planned |
+| Sub-account model | ❌ | Single account tier today |
+| Recording storage + transcription | ❌ | |
+
+## The big remaining items
+
+<AccordionGroup>
+  <Accordion title="#1 <Client> / WebRTC (browser agents)" icon="globe">
+    The production app's human-agent dialer uses the Twilio Voice SDK — the browser originates over WebRTC. OneML has no `<Client>` / WebRTC support yet. This is the largest remaining sub-project (WSS + DTLS-SRTP + TURN + a Voice-SDK-compatible client). Required before human agents can answer/place calls in the browser.
+  </Accordion>
+  <Accordion title="#2 <Record> + recordings" icon="microphone">
+    `<Record>`, `record` on `<Dial>`, `RecordingUrl`, `recordingStatusCallback`, recording storage, and a Twilio-compatible recording-download REST endpoint (the app's recording processor fetches recordings from the REST API).
+  </Accordion>
+  <Accordion title="#3 <Say> TTS and <Play> remote audio" icon="volume-high">
+    A text-to-speech engine for `<Say>`, and a fetch-and-cache step so `<Play>` can play remote audio URLs. Both are parsed today but skipped.
+  </Accordion>
+  <Accordion title="#4 Publish the REST API" icon="cloud">
+    Expose the REST API publicly (Cloudflare Tunnel) so the app can change its `api.twilio.com` base URL to OneML. Prerequisite: set the internal shared secret on both services; scope ingress to the public REST paths only.
+  </Accordion>
+  <Accordion title="#5 Outbound REST CreateCall" icon="phone-arrow-up-right">
+    `POST /Calls.json` for standalone outbound origination (if the app needs server-initiated calls beyond Retell/Voice-SDK). The routing layer already exists; the resource does not.
+  </Accordion>
+</AccordionGroup>
+
+## App-side integration notes
+
+To point the production OneInbox app at OneML:
+
+- Set a DID's **Voice URL** to the app's existing inbound TwiML function — OneML executes the same TwiML.
+- Ensure the app validates `X-Twilio-Signature` with the **account's OneML AuthToken** (store it where the app reads it, or fetch it from `GET /Accounts/{sid}.json`).
+- Two known in-app dependencies on `api.twilio.com` must be re-pointed at the OneML base when the corresponding features land: **recording download** and any **sub-account token fetch**.

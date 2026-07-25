@@ -1,0 +1,50 @@
+---
+title: "Authentication"
+description: "OneML uses the same auth as Twilio: an AccountSid and AuthToken, HTTP Basic on the REST API, and HMAC request signing on webhooks."
+---
+
+## Credentials
+
+Each account has an **AccountSid** (`AC…`) and an **AuthToken**. They are stored on the account (company) record and are the same secret used to validate webhook signatures.
+
+<ParamField path="AccountSid" type="string">
+  Public account identifier, prefixed `AC`. Used as the HTTP Basic username and embedded in resource paths.
+</ParamField>
+
+<ParamField path="AuthToken" type="string">
+  Secret token. Used as the HTTP Basic password and as the HMAC key for request signatures. Treat it like a password.
+</ParamField>
+
+## REST API — HTTP Basic
+
+Authenticate REST calls with HTTP Basic, `AccountSid` as the username and `AuthToken` as the password — identical to Twilio.
+
+```bash
+curl -u ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx:your_auth_token \
+  https://api.your-domain.com/2010-04-01/Accounts/ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.json
+```
+
+An account may only access its own resources; the `AccountSid` in the path must match the authenticated account.
+
+<ResponseField name="401 Unauthorized" type="response">
+  Returned with a `WWW-Authenticate: Basic` header when credentials are missing or wrong. Body: `{"code": 20003, "message": "Authentication required"}`.
+</ResponseField>
+
+## Webhooks — request signing
+
+Every webhook OneML sends to your app (the Voice URL fetch, `<Dial>`/`<Gather>` action continuations, and status callbacks) is signed so your endpoint can verify it came from OneML.
+
+OneML sends **two headers with the same value**:
+
+- `X-Twilio-Signature` — for drop-in compatibility with existing Twilio-validating code.
+- `X-OneML-Signature` — the branded alias.
+
+The algorithm is Twilio's, exactly. See [Request signatures](/signatures) for the formula and validation code.
+
+<Note>
+Your app validates the signature with the **same AuthToken** OneML signs with. To make your existing functions trust OneML, ensure the token your validation reads equals the account's OneML AuthToken (e.g. store it where your `getSubAccountAuthToken` looks, or fetch it from `GET /2010-04-01/Accounts/{sid}.json`).
+</Note>
+
+## Internal endpoints
+
+The `/internal/*` and control endpoints between `cpaas` and `ari_app` are loopback-only and protected by a shared secret (`X-OneML-Internal`). They are never exposed publicly. When the REST API is published (e.g. behind Cloudflare Tunnel), ingress is scoped to `/2010-04-01/*` and `/health` only.

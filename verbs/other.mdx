@@ -1,0 +1,62 @@
+---
+title: "<Hangup>, <Reject>, <Redirect>, <Say>, <Pause>"
+description: "The remaining control and flow verbs."
+---
+
+## `<Hangup>`
+
+Ends the call. Terminal.
+
+```xml
+<Response>
+  <Play>goodbye</Play>
+  <Hangup/>
+</Response>
+```
+
+## `<Reject>`
+
+Declines the call. OneML answers and plays a "no service" announcement, then hangs up. A rejected call is reported as **not answered**.
+
+```xml
+<Response>
+  <Reject reason="busy"/>
+</Response>
+```
+
+<ParamField path="reason" type="string" default="rejected">Parsed. `busy` or `rejected`.</ParamField>
+
+## `<Redirect>`
+
+Transfers control of the call to a new OneML document at another URL. OneML fetches it (signed) and runs it, replacing the current program.
+
+```xml
+<Response>
+  <Redirect method="POST">https://your-app.example/next-step</Redirect>
+</Response>
+```
+
+<ParamField path="method" type="string" default="POST">HTTP method for the fetch.</ParamField>
+
+## `<Say>` — not yet executed
+
+<Warning>
+`<Say>` is **parsed and accepted but skipped** — there is no text-to-speech engine yet. Use `<Play>` with built-in audio for prompts. TTS is on the [roadmap](/compatibility).
+</Warning>
+
+```xml
+<!-- accepted, but currently produces no audio -->
+<Response>
+  <Say>Hello and welcome</Say>
+</Response>
+```
+
+Attributes `voice`, `language`, and `loop` are parsed for forward compatibility.
+
+## `<Pause>` — not yet executed
+
+<Warning>
+`<Pause>` is parsed and accepted but currently **skipped** (no silent wait yet).
+</Warning>
+
+<ParamField path="length" type="integer" default="1">Parsed. Seconds to pause.</ParamField>

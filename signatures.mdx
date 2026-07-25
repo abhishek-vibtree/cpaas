@@ -1,0 +1,75 @@
+---
+title: "Request signatures"
+description: "OneML signs every outbound webhook with Twilio's exact HMAC-SHA1 algorithm, so existing X-Twilio-Signature validation works unchanged."
+---
+
+## The algorithm
+
+For every webhook POST, OneML computes:
+
+1. Start with the **full request URL** (scheme, host, path, and query string exactly as your endpoint receives it).
+2. **Sort the POST parameters by key**, then append each `key` immediately followed by its `value`, with no separators.
+3. Compute **HMAC-SHA1** over that string using the account **AuthToken** as the key.
+4. **Base64-encode** the digest.
+
+This is byte-for-byte Twilio's scheme — it matches Twilio's published test vector.
+
+The result is sent in both headers:
+
+```http
+X-Twilio-Signature: GvWf1cFY/Q7PnoempGyD5oXAezc=
+X-OneML-Signature:  GvWf1cFY/Q7PnoempGyD5oXAezc=
+```
+
+## Validating in your app
+
+Existing Twilio validation works as-is. A minimal reference implementation:
+
+<CodeGroup>
+```typescript Node / Deno
+import { createHmac } from "node:crypto";
+
+export function validate(
+  authToken: string,
+  signature: string,
+  url: string,
+  params: Record<string, string>,
+): boolean {
+  let data = url;
+  for (const key of Object.keys(params).sort()) data += key + params[key];
+  const expected = createHmac("sha1", authToken).update(data, "utf8").digest("base64");
+  // constant-time compare
+  return expected.length === signature.length &&
+    createHmac("sha1", authToken).update(expected).digest("hex") ===
+    createHmac("sha1", authToken).update(signature).digest("hex");
+}
+```
+
+```python Python
+import base64, hashlib, hmac
+
+def validate(auth_token: str, signature: str, url: str, params: dict) -> bool:
+    data = url
+    for key in sorted(params):
+        data += key + str(params[key])
+    mac = hmac.new(auth_token.encode(), data.encode(), hashlib.sha1)
+    expected = base64.b64encode(mac.digest()).decode()
+    return hmac.compare_digest(expected, signature)
+```
+</CodeGroup>
+
+<Warning>
+Validation is **byte-sensitive on the URL**. The URL you reconstruct must match what OneML signed — same scheme (`https`), host, path, and query string. If a proxy rewrites `http`↔`https` or adds/strips a trailing slash, validation fails even though the signature is correct.
+</Warning>
+
+## Which requests are signed
+
+| Request | Signed |
+| --- | --- |
+| Voice URL fetch | ✅ |
+| `<Dial action>` / `<Gather action>` continuation | ✅ |
+| Call status callbacks | ✅ |
+| Conference status callbacks | ✅ |
+| Participant status callbacks | ✅ |
+
+Signatures are only added when the account has an AuthToken set. If it is unset, requests are delivered unsigned.

@@ -1,0 +1,51 @@
+---
+title: "OneML verbs"
+description: "OneML is TwiML. This is the set of verbs the executor runs today, and the ones that parse but are not yet executed."
+---
+
+An OneML document is a `<Response>` (or `<OneML>`) root containing an ordered list of verbs. OneML runs them top to bottom; blocking verbs suspend the program until their event.
+
+## Implemented verbs
+
+<CardGroup cols={2}>
+  <Card title="<Dial>" icon="phone-arrow-up-right" href="/verbs/dial">
+    Connect the caller to a `<Number>`, `<Sip>`, or `<Conference>`. Supports `action`, `timeout`, `callerId`, and per-leg `statusCallback`.
+  </Card>
+  <Card title="<Gather>" icon="hashtag" href="/verbs/gather">
+    Collect DTMF, play nested prompts, and POST the digits to an `action` URL.
+  </Card>
+  <Card title="<Play>" icon="volume-high" href="/verbs/play">
+    Play built-in audio to the caller.
+  </Card>
+  <Card title="<Conference>" icon="users" href="/verbs/conference">
+    Put the caller into a named room. Full attribute + Participants API support.
+  </Card>
+  <Card title="<Hangup> / <Reject> / <Redirect>" icon="phone-slash" href="/verbs/other">
+    End the call, reject it, or fetch a new document.
+  </Card>
+  <Card title="<Say> / <Pause>" icon="hourglass-half" href="/verbs/other">
+    Parsed and accepted, but currently skipped (see notes).
+  </Card>
+</CardGroup>
+
+## Support matrix
+
+| Verb | Status | Notes |
+| --- | --- | --- |
+| `<Dial>` | ✅ Implemented | `<Number>`, `<Sip>` (known peers), `<Conference>` nouns |
+| `<Gather>` | ✅ Implemented | DTMF, nested prompts, `action` |
+| `<Play>` | ⚠️ Partial | Built-in audio only; remote HTTP audio URLs not yet fetched |
+| `<Conference>` | ✅ Implemented | Full attribute set + Participants API |
+| `<Hangup>` | ✅ Implemented | |
+| `<Reject>` | ✅ Implemented | Plays a "no service" announcement |
+| `<Redirect>` | ✅ Implemented | Fetches and runs a new document |
+| `<Say>` | ❌ Not yet | Parsed and skipped — TTS engine pending |
+| `<Pause>` | ❌ Not yet | Parsed and skipped |
+| `<Record>` | ❌ Not yet | Not implemented |
+| `<Dial><Client>` | ❌ Not yet | WebRTC / browser agents — see [Compatibility](/compatibility) |
+| `<Dial><Queue>` | ❌ Not yet | Noun parsed, not executed |
+| Unknown verbs | ✅ Tolerated | Passed through as unsupported and skipped — never fail the document |
+
+<Warning>
+Because `<Say>` is skipped, use `<Play>` with built-in audio names for prompts until TTS lands. A document mixing supported and unsupported verbs still runs — the unsupported ones are simply skipped.
+</Warning>

@@ -1,0 +1,65 @@
+---
+title: "Call status callbacks"
+description: "Attach a statusCallback to a dialed leg and OneML posts signed call-progress events — initiated, ringing, answered, completed — to your app."
+---
+
+Call-progress events are delivered asynchronously to a `statusCallback` URL declared on a dialed noun (`<Number>`, `<Sip>`) or on a REST-added conference participant. They are how your call log tracks a call's lifecycle.
+
+## Subscribing
+
+Declare the callback and the events you want on the noun:
+
+```xml
+<Response>
+  <Dial>
+    <Sip statusCallback="https://your-app.example/call-status"
+         statusCallbackEvent="initiated ringing answered completed">
+      sip:agent@retell
+    </Sip>
+  </Dial>
+</Response>
+```
+
+<ParamField path="statusCallback" type="string">The URL that receives the events.</ParamField>
+<ParamField path="statusCallbackEvent" type="string">
+  Space-separated subset of `initiated`, `ringing`, `answered`, `completed`. Only subscribed events are sent.
+</ParamField>
+
+## Events
+
+| Event | `CallStatus` | When |
+| --- | --- | --- |
+| `initiated` | `initiated` | The dialed leg was created |
+| `ringing` | `ringing` | The leg is ringing |
+| `answered` | `in-progress` | The callee answered |
+| `completed` | `completed` / `no-answer` | The leg ended (with `CallDuration`) |
+
+<Note>
+The terminal `completed` event fires whether the **callee** hangs up or the **caller** hangs up first — you always get a closing event with `CallDuration`.
+</Note>
+
+## Payload
+
+Each callback is a signed POST with Twilio-shaped parameters:
+
+<ResponseField name="CallSid" type="string">The dialed (child) leg.</ResponseField>
+<ResponseField name="ParentCallSid" type="string">The inbound call the leg belongs to.</ResponseField>
+<ResponseField name="CallStatus" type="string">See the table above.</ResponseField>
+<ResponseField name="From" type="string">The caller / originating number.</ResponseField>
+<ResponseField name="To" type="string">The dialed destination.</ResponseField>
+<ResponseField name="CalledVia" type="string">The original DID the call arrived on.</ResponseField>
+<ResponseField name="Direction" type="string">`inbound`.</ResponseField>
+<ResponseField name="CallDuration" type="string">Seconds; present on `completed`.</ResponseField>
+<ResponseField name="AccountSid" type="string">The owning account.</ResponseField>
+
+```
+CallSid=1784904368.192&ParentCallSid=1784904359.188&CallStatus=completed
+&From=+819011112222&To=+81345885303&CalledVia=+81345885303
+&Direction=inbound&CallDuration=13&AccountSid=ACxxxx
+```
+
+Your endpoint should return `2xx` (Twilio ignores the body — `204 No Content` is fine).
+
+<Note>
+Conference rooms have their own event stream (`participant-join`, `participant-leave`, etc.). See [Conference events](/conference/events).
+</Note>

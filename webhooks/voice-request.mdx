@@ -1,0 +1,60 @@
+---
+title: "Voice URL request"
+description: "When a call reaches a programmable number, OneML fetches its Voice URL and executes the OneML returned. This is the request it sends."
+---
+
+## The flow
+
+When an inbound call reaches a DID that has a **Voice URL** configured, OneML makes an HTTP request to that URL and executes the OneML (TwiML) document it returns.
+
+<Steps>
+  <Step title="Request">
+    OneML POSTs (or GETs, per the DID's `voice_method`) a Twilio-shaped, signed form body to your Voice URL.
+  </Step>
+  <Step title="Response">
+    Your endpoint returns an OneML document (`Content-Type: text/xml`) — a `<Response>` containing verbs.
+  </Step>
+  <Step title="Execution">
+    OneML runs the verbs top to bottom. Blocking verbs suspend until their event; `<Redirect>` / `action` URLs fetch the next document.
+  </Step>
+</Steps>
+
+## Request parameters
+
+The request body carries the standard Twilio voice parameters:
+
+<ParamField body="CallSid" type="string">Unique identifier for this call leg.</ParamField>
+<ParamField body="AccountSid" type="string">The account that owns the number.</ParamField>
+<ParamField body="From" type="string">Caller's number (E.164).</ParamField>
+<ParamField body="To" type="string">The dialed number (E.164) — your DID.</ParamField>
+<ParamField body="Direction" type="string">`inbound` for calls arriving on your number.</ParamField>
+<ParamField body="CallStatus" type="string">`ringing` at the initial fetch.</ParamField>
+<ParamField body="ApiVersion" type="string">`2010-04-01`.</ParamField>
+
+<Note>
+Continuation fetches (`<Dial action>`, `<Gather action>`, `<Redirect>`) reuse this shape and add the relevant extra parameter — `DialCallStatus`, `Digits`, etc. See [Action continuation](/webhooks/action-continuation).
+</Note>
+
+## Response
+
+Return a `<Response>` (or `<OneML>`) document. Unknown verbs are ignored (not errors), so a document is never failed by one unsupported/future verb.
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Play>welcome</Play>
+  <Gather numDigits="1" action="https://your-app.example/handle">
+    <Play>press-1-for-sales</Play>
+  </Gather>
+  <Play>goodbye</Play>
+  <Hangup/>
+</Response>
+```
+
+## Fallback behaviour
+
+<Warning>
+If the primary Voice URL fails, OneML tries the DID's **fallback URL** (`voice_fallback_url`) if set. If that also fails, the call falls back to the internal routing engine — it is never dropped because of a webhook error.
+</Warning>
+
+Response body size and fetch time are capped to protect the parser and the real-time call path.

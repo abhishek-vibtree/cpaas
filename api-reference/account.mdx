@@ -1,0 +1,42 @@
+---
+title: "Fetch an Account"
+description: "Retrieve the authenticated account resource."
+api: "GET https://api.your-domain.com/2010-04-01/Accounts/{AccountSid}.json"
+---
+
+Returns the account identified by `{AccountSid}`. An account may only fetch itself.
+
+## Path parameters
+
+<ParamField path="AccountSid" type="string" required>
+  The account SID (`AC…`). Must match the authenticated account.
+</ParamField>
+
+## Response
+
+<ResponseField name="sid" type="string">The account SID.</ResponseField>
+<ResponseField name="friendly_name" type="string">Human-readable account name.</ResponseField>
+<ResponseField name="status" type="string">`active`.</ResponseField>
+<ResponseField name="type" type="string">`Full`.</ResponseField>
+<ResponseField name="auth_token" type="string">
+  The account's AuthToken (Twilio returns it to the owner). Useful for wiring signature validation in your app.
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl -u AC…:auth_token \
+  https://api.your-domain.com/2010-04-01/Accounts/AC….json
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "sid": "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "friendly_name": "Acme Voice",
+  "status": "active",
+  "type": "Full",
+  "auth_token": "••••••••••••••••••••••••••••••••"
+}
+```
+</ResponseExample>

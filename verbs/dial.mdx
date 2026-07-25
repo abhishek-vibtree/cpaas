@@ -1,0 +1,62 @@
+---
+title: "<Dial>"
+description: "Connect the caller to another party — a phone number, a SIP peer, or a conference room — with action continuation and per-leg status callbacks."
+---
+
+`<Dial>` connects the current caller to one or more destinations. It is **not terminal**: when the dialed leg ends, OneML either fetches the `action` URL or continues to the next verb.
+
+## Attributes
+
+<ParamField path="action" type="string">
+  URL fetched when the dial completes, with `DialCallStatus` + `DialCallDuration`. See [Action continuation](/webhooks/action-continuation).
+</ParamField>
+<ParamField path="timeout" type="integer" default="30">
+  Seconds to ring the callee before giving up (no-answer).
+</ParamField>
+<ParamField path="callerId" type="string">
+  Caller ID presented to the callee. Defaults to the original caller.
+</ParamField>
+<ParamField path="method" type="string" default="POST">
+  HTTP method for the `action` request.
+</ParamField>
+
+## Nouns
+
+### `<Number>`
+
+Dial a PSTN number. The destination is resolved through your **Routes table** (trunk + national/E.164 formatting) — see [Outbound routing](/outbound/routing).
+
+```xml
+<Response>
+  <Dial timeout="25" action="https://your-app.example/after">
+    <Number>+819012345678</Number>
+  </Dial>
+</Response>
+```
+
+### `<Sip>`
+
+Dial a SIP destination. Today the URI **host must resolve to a configured peer** (for example, an AI agent trunk such as Retell). Arbitrary/unknown SIP URIs are not yet dialed.
+
+```xml
+<Response>
+  <Dial callerId="+81345885303">
+    <Sip statusCallback="https://your-app.example/status"
+         statusCallbackEvent="initiated ringing answered completed">
+      sip:agent@retell
+    </Sip>
+  </Dial>
+</Response>
+```
+
+### `<Conference>`
+
+Put the caller into a named room. See the dedicated [Conference](/verbs/conference) page.
+
+## Per-leg status callbacks
+
+Add `statusCallback` + `statusCallbackEvent` to a `<Number>` or `<Sip>` noun to receive `initiated` / `ringing` / `answered` / `completed` events for that leg. See [Call status callbacks](/webhooks/status-callbacks).
+
+<Note>
+**Not yet supported on `<Dial>`:** the `<Client>` noun (WebRTC browser agents), the `<Queue>` noun, `record="…"` call recording, and `answerOnBridge`/recording attributes are parsed but not acted on. Track these on [Compatibility](/compatibility).
+</Note>

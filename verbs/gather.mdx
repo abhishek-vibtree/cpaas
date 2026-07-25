@@ -1,0 +1,59 @@
+---
+title: "<Gather>"
+description: "Collect DTMF input from the caller, play prompts while waiting, and post the digits to your app."
+---
+
+`<Gather>` plays optional nested prompts, collects the keys the caller presses, and — when input is complete — POSTs the `Digits` to its `action` URL.
+
+## Attributes
+
+<ParamField path="action" type="string">
+  URL to POST `Digits` to when the gather completes. See [Action continuation](/webhooks/action-continuation).
+</ParamField>
+<ParamField path="numDigits" type="integer">
+  Finish as soon as this many digits are collected. `0` (default) = wait for `finishOnKey` or `timeout`.
+</ParamField>
+<ParamField path="timeout" type="integer" default="5">
+  Seconds to wait for input (inter-digit timeout after the first press).
+</ParamField>
+<ParamField path="finishOnKey" type="string" default="#">
+  A key that ends input immediately.
+</ParamField>
+<ParamField path="actionOnEmptyResult" type="boolean" default="false">
+  If `true`, the `action` URL is fetched even when the gather times out with no digits (with an empty `Digits`). If `false`, an empty gather falls through to the next verb.
+</ParamField>
+
+## Nested prompts
+
+`<Gather>` may contain prompt verbs that play while it waits. The caller can **barge in** — the first keypress stops the prompt.
+
+<Note>
+Prompts use `<Play>` with built-in audio. Nested `<Say>` (TTS) and remote-URL `<Play>` are skipped until those land — see [Compatibility](/compatibility).
+</Note>
+
+## Example — a one-key IVR menu
+
+```xml
+<Response>
+  <Gather numDigits="1" timeout="8" action="https://your-app.example/menu-handle">
+    <Play>press-1-for-sales-2-for-support</Play>
+  </Gather>
+  <Play>no-input-goodbye</Play>
+  <Hangup/>
+</Response>
+```
+
+Your `/menu-handle` receives `Digits` and returns the next document:
+
+```xml
+<Response>
+  <Dial><Number>+819000000001</Number></Dial>
+</Response>
+```
+
+## Behaviour summary
+
+- Input completes on `numDigits` reached, `finishOnKey` pressed, or `timeout`.
+- With digits (or `actionOnEmptyResult=true`), OneML POSTs `Digits` to `action`.
+- Otherwise, the program continues with the verb after `<Gather>`.
+- Timers run off the executor thread and resume on the single event loop, so gather never blocks other calls.

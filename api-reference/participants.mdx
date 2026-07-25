@@ -1,0 +1,140 @@
+---
+title: "Conference Participants"
+description: "Add, list, update (mute/hold), and remove conference participants, and end a room — the Twilio-compatible Participants API."
+---
+
+All endpoints are under `/2010-04-01/Accounts/{AccountSid}/Conferences/{ConferenceName}`, authenticated with HTTP Basic. `{ConferenceName}` is the room's FriendlyName (the value inside `<Conference>`).
+
+---
+
+## Add a participant
+
+`POST …/Conferences/{ConferenceName}/Participants`
+
+Dials a new party **into** the room. The destination is resolved through your [Routes table](/outbound/routing). When the party answers, they join the room; `initiated`/`ringing` are emitted immediately, then `answered` on pickup.
+
+<ParamField body="To" type="string" required>
+  Destination. An E.164 number (routed via the Routes table) or `sip:user@peer` for a known peer.
+</ParamField>
+<ParamField body="From" type="string" required>
+  Caller ID / originating DID. Used for CLI formatting and account/token resolution.
+</ParamField>
+<ParamField body="StatusCallback" type="string">
+  URL for this leg's call-progress events.
+</ParamField>
+<ParamField body="StatusCallbackEvent" type="string">
+  Subset of `initiated ringing answered completed`.
+</ParamField>
+<ParamField body="Muted" type="boolean" default="false">Join muted.</ParamField>
+<ParamField body="EndConferenceOnExit" type="boolean" default="false">End the room when this participant leaves.</ParamField>
+<ParamField body="Timeout" type="integer" default="30">Ring timeout in seconds.</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -u AC…:auth_token -X POST \
+  https://api.your-domain.com/2010-04-01/Accounts/AC…/Conferences/support-room-42/Participants \
+  --data-urlencode "To=+817095125140" \
+  --data-urlencode "From=+81345885303" \
+  --data-urlencode "StatusCallback=https://your-app.example/call-status" \
+  --data-urlencode "StatusCallbackEvent=initiated ringing answered completed"
+```
+</RequestExample>
+
+<ResponseExample>
+```json 201
+{
+  "account_sid": "AC…",
+  "call_sid": "1784942847.67",
+  "conference_sid": "CF711bfd946dafce284462634f4ced5647",
+  "muted": false,
+  "hold": false,
+  "start_conference_on_enter": true,
+  "end_conference_on_exit": false,
+  "status": "connecting",
+  "uri": "/2010-04-01/Accounts/AC…/Conferences/support-room-42/Participants/1784942847.67.json"
+}
+```
+</ResponseExample>
+
+---
+
+## List participants
+
+`GET …/Conferences/{ConferenceName}/Participants`
+
+Returns the participants currently in the room.
+
+<ResponseExample>
+```json 200
+{
+  "conference_sid": "CF711bfd946dafce284462634f4ced5647",
+  "participants": [
+    { "account_sid": "AC…", "call_sid": "1784942823.64", "conference_sid": "CF…", "muted": false, "hold": false, "status": "connected" },
+    { "account_sid": "AC…", "call_sid": "1784942847.67", "conference_sid": "CF…", "muted": false, "hold": false, "status": "connected" }
+  ]
+}
+```
+</ResponseExample>
+
+---
+
+## Fetch or update a participant
+
+`GET` or `POST …/Conferences/{ConferenceName}/Participants/{CallSid}`
+
+`POST` updates the participant. Setting `Muted`/`Hold` emits the matching `participant-mute`/`participant-hold` conference event.
+
+<ParamField body="Muted" type="boolean">
+  Mute (`true`) or unmute (`false`) — stops/allows the leg's audio into the room.
+</ParamField>
+<ParamField body="Hold" type="boolean">
+  Hold (`true`) plays music-on-hold to the leg and mutes it; unhold (`false`) reverses it.
+</ParamField>
+
+<RequestExample>
+```bash Mute
+curl -u AC…:auth_token -X POST \
+  https://api.your-domain.com/2010-04-01/Accounts/AC…/Conferences/support-room-42/Participants/1784942847.67 \
+  --data-urlencode "Muted=true"
+```
+```bash Hold
+curl -u AC…:auth_token -X POST \
+  https://api.your-domain.com/2010-04-01/Accounts/AC…/Conferences/support-room-42/Participants/1784942847.67 \
+  --data-urlencode "Hold=true"
+```
+</RequestExample>
+
+---
+
+## Remove a participant (kick)
+
+`DELETE …/Conferences/{ConferenceName}/Participants/{CallSid}`
+
+Removes the participant by hanging up their leg. Fires `participant-leave` (and `conference-end` if they were the last). Returns `204 No Content`.
+
+<RequestExample>
+```bash cURL
+curl -u AC…:auth_token -X DELETE \
+  https://api.your-domain.com/2010-04-01/Accounts/AC…/Conferences/support-room-42/Participants/1784942847.67
+```
+</RequestExample>
+
+---
+
+## End a conference
+
+`POST …/Conferences/{ConferenceName}` with `Status=completed`
+
+Ends the whole room — hangs up every participant, firing `participant-leave` for each and a final `conference-end`.
+
+<RequestExample>
+```bash cURL
+curl -u AC…:auth_token -X POST \
+  https://api.your-domain.com/2010-04-01/Accounts/AC…/Conferences/support-room-42 \
+  --data-urlencode "Status=completed"
+```
+</RequestExample>
+
+<Note>
+**Coaching** (`Coaching`, `CallSidToCoach`) on participant add/update is not yet supported. See [Compatibility](/compatibility).
+</Note>

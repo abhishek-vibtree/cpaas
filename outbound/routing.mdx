@@ -1,0 +1,52 @@
+---
+title: "Outbound routing"
+description: "REST-originated calls resolve their destination through your dashboard Routes table — the single, global source of trunk and number formatting."
+---
+
+When OneML originates an outbound leg (today: dialing a participant into a conference via the Participants API), it resolves the destination through your **Routes table** — the same engine that routes normal calls. There is one globally-defined path, not a per-call hardcode.
+
+## How a destination resolves
+
+Given a `To` and the account, OneML applies the routes ladder:
+
+<Steps>
+  <Step title="Private routes">
+    The account's own routes (scoped to the company) are matched first, longest-prefix wins.
+  </Step>
+  <Step title="Global routes">
+    Then global routes. A route names a **target peer** (trunk), a **dial format**, and a **CLI format**.
+  </Step>
+  <Step title="Format & dial">
+    The matched route's `dial_format` is applied to the number (e.g. E.164 `+817095125140` → national `07095125140`) and `cli_format` to the caller ID, then OneML dials the target peer.
+  </Step>
+</Steps>
+
+<Note>
+Change a route's target trunk or formatting in the dashboard and **every** originated call follows automatically — the API reads the same table.
+</Note>
+
+## Example
+
+A dashboard route:
+
+| Scope | Pattern | Target | Dial format | CLI format |
+| --- | --- | --- | --- | --- |
+| Global | `+81` | `denphone` | national | national |
+
+A Participants call with `To=+817095125140`, `From=+81345885303` resolves to peer `denphone`, dialing `07095125140` with caller ID `0345885303`.
+
+## Direct SIP override
+
+To bypass routing and dial a specific configured peer directly (for example an AI-agent trunk), pass a SIP URI whose host is a **known peer** — the same semantics as `<Dial><Sip>`:
+
+```
+To=sip:agent@retell
+```
+
+Arbitrary/unknown SIP URIs are not dialed.
+
+## Not yet supported
+
+<Warning>
+REST **CreateCall** (`POST /2010-04-01/Accounts/{sid}/Calls.json`) — originating a standalone outbound call — is not yet implemented; outbound origination today is the conference Participants API. The same `resolve_outbound` routing will back CreateCall when it is added. See [Compatibility](/compatibility).
+</Warning>

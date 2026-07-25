@@ -1,0 +1,59 @@
+---
+title: "Architecture"
+description: "How OneML turns a TwiML webhook into a live call: a control plane that fetches and signs, and a real-time executor that drives Asterisk."
+---
+
+OneML is two co-located services sharing one datastore, sitting on top of Asterisk 20 / PJSIP driven through the Asterisk REST Interface (ARI).
+
+<Steps>
+  <Step title="A call arrives">
+    Asterisk hands the inbound channel to the Stasis application (`ari_app`). If the dialed DID has a **Voice URL** configured, OneML takes the programmable path; otherwise the call falls through to the internal routing engine (unchanged behaviour).
+  </Step>
+  <Step title="Fetch the instructions">
+    `ari_app` asks the control plane (`cpaas`) to fetch the customer's Voice URL. `cpaas` builds a Twilio-shaped request, **signs it**, POSTs it, and parses the returned OneML into a verb list.
+  </Step>
+  <Step title="Execute the verbs">
+    `ari_app` runs the verb list as a per-call program: non-blocking verbs advance immediately; blocking verbs (`<Play>`, `<Dial>`, `<Gather>`) suspend and resume on the matching Asterisk event.
+  </Step>
+  <Step title="Continue and report">
+    `<Dial action>` / `<Gather action>` fetch the next document; `statusCallback` events post call progress back to your app. Both are signed.
+  </Step>
+</Steps>
+
+## The two services
+
+<CardGroup cols={2}>
+  <Card title="ari_app — the executor" icon="bolt">
+    The real-time engine. Owns the ARI connection, all call state, and the OneML program counter. Single-threaded event loop (no locks): one queue, a WebSocket reader, and a worker pool for the slow off-box webhook fetch — so a slow webhook never stalls call handling.
+  </Card>
+  <Card title="cpaas — the control plane" icon="server">
+    A Flask/gunicorn service. Serves the Twilio-compatible REST API, authenticates accounts, builds + signs + fetches Voice webhooks, parses OneML, signs + forwards status callbacks, and hosts the Conference Participants API.
+  </Card>
+</CardGroup>
+
+<Note>
+The two services talk over loopback only. `cpaas` calls a small **control endpoint** on `ari_app` for operations that must touch live call state (e.g. conference mute/hold), so the executor performs the op **and** emits the matching status event.
+</Note>
+
+## Per-DID opt-in
+
+A number is "programmable" when its **Voice URL** is set. That single field is the switch:
+
+- **Voice URL set** → OneML fetches + executes the returned markup.
+- **Voice URL empty** → the call uses the internal routing engine, exactly as before.
+
+If a webhook fetch fails (unreachable, non-2xx, unparseable), the call **falls back** to the routing engine rather than dropping — a broken webhook never loses a call.
+
+## Data model
+
+OneML reuses OneInbox's existing database. The Twilio concepts map onto existing tables:
+
+| Twilio concept | OneML |
+| --- | --- |
+| Account (`AccountSid` + `AuthToken`) | a company row, with `account_sid` + `auth_token` |
+| Programmable number | a DID row, with `voice_url`, `voice_method`, `voice_fallback_url`, `status_callback_url` |
+| Outbound routing | the dashboard **Routes** table (private + global routes, dial/CLI formats) |
+
+## Latency
+
+The one real latency cost is the webhook fetch (model-inherent — Twilio has it too). OneML absorbs it under ringback: the caller is not answered until the first verb is ready. The `cpaas`/`ari_app` split adds only a loopback hop (~1–3 ms). For this reason the two services **must** be co-located with Asterisk.
