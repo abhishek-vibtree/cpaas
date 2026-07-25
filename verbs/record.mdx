@@ -1,0 +1,67 @@
+---
+title: "<Record>"
+description: "Record the caller's voice — voicemail capture — then continue via an action URL with the recording details."
+---
+
+`<Record>` records the **caller's own channel** (voicemail-style), then continues the call. It plays an optional beep, records until a `finishOnKey` press, a silence `timeout`, `maxLength`, or hangup, and then requests the `action` URL with the recording details — or advances to the next verb if there is no `action`.
+
+```xml
+<Response>
+  <Play>vm-intro</Play>
+  <Record maxLength="30" timeout="5" finishOnKey="#"
+          action="https://your-app.example/voicemail-done"
+          recordingStatusCallback="https://your-app.example/recording-status"/>
+  <Play>vm-goodbye</Play>
+  <Hangup/>
+</Response>
+```
+
+## Attributes
+
+<ParamField path="action" type="string">
+  URL requested when recording ends, with `RecordingUrl`, `RecordingSid`, `RecordingDuration`, and `Digits` (the finishOnKey pressed, if any). The returned OneML becomes the next program. With no `action`, OneML continues to the next verb. **Not requested if the caller hangs up** — but the recording is still saved and `recordingStatusCallback` still fires.
+</ParamField>
+<ParamField path="timeout" type="integer" default="5">
+  Seconds of silence after which recording ends.
+</ParamField>
+<ParamField path="maxLength" type="integer" default="3600">
+  Maximum recording length in seconds.
+</ParamField>
+<ParamField path="finishOnKey" type="string" default="#">
+  Key(s) that end the recording when pressed. Any DTMF key works; the pressed key is reported as `Digits` on the `action`.
+</ParamField>
+<ParamField path="playBeep" type="boolean" default="true">
+  Play a beep before recording starts.
+</ParamField>
+<ParamField path="recordingStatusCallback" type="string">
+  URL that receives the signed recording-completion callback (`RecordingUrl` / `RecordingSid` / `RecordingDuration`). See [Recordings](/api-reference/recordings).
+</ParamField>
+<ParamField path="recordingStatusCallbackEvent" type="string" default="completed">
+  Which recording events to send.
+</ParamField>
+
+## The `action` request
+
+When recording ends (and the caller is still connected), OneML POSTs to `action`:
+
+<ResponseField name="RecordingUrl" type="string">The recording's download URL (append `.mp3` / `.wav`).</ResponseField>
+<ResponseField name="RecordingSid" type="string">The recording's ID.</ResponseField>
+<ResponseField name="RecordingDuration" type="string">Length in seconds.</ResponseField>
+<ResponseField name="Digits" type="string">The `finishOnKey` pressed to end recording, if any.</ResponseField>
+
+Return OneML to keep controlling the call (for example, confirm and hang up):
+
+```xml
+<Response>
+  <Play>vm-goodbye</Play>
+  <Hangup/>
+</Response>
+```
+
+<Note>
+Recordings are stored and downloaded exactly like `<Dial>` call recordings — see [Recordings](/api-reference/recordings). `RecordingSource` is `RecordVerb` for `<Record>` (versus `DialVerb` for `<Dial record>`).
+</Note>
+
+<Note>
+**Not yet acted on:** `transcribe` / `transcribeCallback` (transcription is handled app-side) and `trim`. Track these on [Compatibility](/compatibility).
+</Note>

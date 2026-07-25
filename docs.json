@@ -38,6 +38,7 @@
               "verbs/dial",
               "verbs/gather",
               "verbs/play",
+              "verbs/record",
               "verbs/conference",
               "verbs/other"
             ]

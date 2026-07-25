@@ -75,5 +75,5 @@ RecordingSid=RE…&RecordingUrl=https://cpaastokyo.oneinbox.ai/2010-04-01/Accoun
 The POST is signed with the account's AuthToken (`X-Twilio-Signature` + `X-OneML-Signature`), like every other OneML callback — see [Signatures](/signatures).
 
 <Note>
-**v1 scope:** call recording via `record` on `<Dial>` (mono mix). A `Recordings.json` list resource, the standalone `<Record>` verb (voicemail capture), and true dual-channel stereo are planned. Track them on [Compatibility](/compatibility).
+Both `record` on [`<Dial>`](/verbs/dial#recording) (call recording) and the standalone [`<Record>`](/verbs/record) verb (voicemail) produce recordings served here — `RecordingSource` distinguishes them (`DialVerb` vs `RecordVerb`). Planned: a `Recordings.json` list resource and true dual-channel stereo (v1 is a mono mix). Track them on [Compatibility](/compatibility).
 </Note>
