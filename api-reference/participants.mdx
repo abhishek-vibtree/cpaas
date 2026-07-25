@@ -32,7 +32,7 @@ Dials a new party **into** the room. The destination is resolved through your [R
 <RequestExample>
 ```bash cURL
 curl -u AC…:auth_token -X POST \
-  https://api.your-domain.com/2010-04-01/Accounts/AC…/Conferences/support-room-42/Participants \
+  https://cpaastokyo.oneinbox.ai/2010-04-01/Accounts/AC…/Conferences/support-room-42/Participants \
   --data-urlencode "To=+817095125140" \
   --data-urlencode "From=+81345885303" \
   --data-urlencode "StatusCallback=https://your-app.example/call-status" \
@@ -94,12 +94,12 @@ Returns the participants currently in the room.
 <RequestExample>
 ```bash Mute
 curl -u AC…:auth_token -X POST \
-  https://api.your-domain.com/2010-04-01/Accounts/AC…/Conferences/support-room-42/Participants/1784942847.67 \
+  https://cpaastokyo.oneinbox.ai/2010-04-01/Accounts/AC…/Conferences/support-room-42/Participants/1784942847.67 \
   --data-urlencode "Muted=true"
 ```
 ```bash Hold
 curl -u AC…:auth_token -X POST \
-  https://api.your-domain.com/2010-04-01/Accounts/AC…/Conferences/support-room-42/Participants/1784942847.67 \
+  https://cpaastokyo.oneinbox.ai/2010-04-01/Accounts/AC…/Conferences/support-room-42/Participants/1784942847.67 \
   --data-urlencode "Hold=true"
 ```
 </RequestExample>
@@ -115,7 +115,7 @@ Removes the participant by hanging up their leg. Fires `participant-leave` (and 
 <RequestExample>
 ```bash cURL
 curl -u AC…:auth_token -X DELETE \
-  https://api.your-domain.com/2010-04-01/Accounts/AC…/Conferences/support-room-42/Participants/1784942847.67
+  https://cpaastokyo.oneinbox.ai/2010-04-01/Accounts/AC…/Conferences/support-room-42/Participants/1784942847.67
 ```
 </RequestExample>
 
@@ -130,7 +130,7 @@ Ends the whole room — hangs up every participant, firing `participant-leave` f
 <RequestExample>
 ```bash cURL
 curl -u AC…:auth_token -X POST \
-  https://api.your-domain.com/2010-04-01/Accounts/AC…/Conferences/support-room-42 \
+  https://cpaastokyo.oneinbox.ai/2010-04-01/Accounts/AC…/Conferences/support-room-42 \
   --data-urlencode "Status=completed"
 ```
 </RequestExample>
