@@ -1,0 +1,107 @@
+---
+title: "Calls"
+description: "Originate outbound calls, fetch and modify live calls, and list recent calls — the Twilio-compatible Calls API."
+---
+
+All endpoints are under `/2010-04-01/Accounts/{AccountSid}/Calls`, authenticated with HTTP Basic (`AccountSid:AuthToken`).
+
+---
+
+## Create a call
+
+`POST …/Calls.json`
+
+Originates an outbound call to `To`. When it answers, OneML fetches the TwiML at `Url` and runs it (the same executor an inbound call uses — `<Play>`, `<Gather>`, `<Dial>`, `<Conference>` all work). `To` is routed through your [Routes table](/outbound/routing).
+
+<ParamField body="To" type="string" required>Destination — an E.164 number (routed via the Routes table) or `sip:user@peer`.</ParamField>
+<ParamField body="From" type="string" required>Caller ID presented to `To`.</ParamField>
+<ParamField body="Url" type="string" required>TwiML/OneML URL run when `To` answers. (Inline `Twiml` is not supported — host it and pass `Url`.)</ParamField>
+<ParamField body="StatusCallback" type="string">URL for call-progress events.</ParamField>
+<ParamField body="StatusCallbackEvent" type="string">Subset of `initiated ringing answered completed`.</ParamField>
+<ParamField body="Timeout" type="integer" default="30">Ring timeout in seconds.</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -u AC…:auth_token -X POST \
+  https://cpaastokyo.oneinbox.ai/2010-04-01/Accounts/AC…/Calls.json \
+  --data-urlencode "To=+819012345678" \
+  --data-urlencode "From=+81345885303" \
+  --data-urlencode "Url=https://your-app.example/answer-twiml" \
+  --data-urlencode "StatusCallback=https://your-app.example/call-status"
+```
+</RequestExample>
+
+<ResponseExample>
+```json 201
+{
+  "sid": "1784984351.23",
+  "account_sid": "AC…",
+  "to": "+819012345678",
+  "from": "+81345885303",
+  "status": "queued",
+  "direction": "outbound-api",
+  "uri": "/2010-04-01/Accounts/AC…/Calls/1784984351.23.json"
+}
+```
+</ResponseExample>
+
+`initiated` / `ringing` fire pre-answer; `answered` / `completed` fire from the media engine.
+
+---
+
+## Fetch a call
+
+`GET …/Calls/{CallSid}.json`
+
+Returns the call's status — `in-progress` while live, otherwise the final disposition (`completed`, `no-answer`, `busy`, `failed`).
+
+<ResponseExample>
+```json 200
+{ "sid": "1784984351.23", "account_sid": "AC…", "status": "completed",
+  "uri": "/2010-04-01/Accounts/AC…/Calls/1784984351.23.json" }
+```
+</ResponseExample>
+
+---
+
+## Modify a live call
+
+`POST …/Calls/{CallSid}.json`
+
+<ParamField body="Status" type="string">`completed` hangs up the call.</ParamField>
+<ParamField body="Url" type="string">Redirect the running call to new TwiML (replaces the current program).</ParamField>
+
+<RequestExample>
+```bash Redirect
+curl -u AC…:auth_token -X POST \
+  https://cpaastokyo.oneinbox.ai/2010-04-01/Accounts/AC…/Calls/1784984351.23.json \
+  --data-urlencode "Url=https://your-app.example/new-twiml"
+```
+```bash Hang up
+curl -u AC…:auth_token -X POST \
+  https://cpaastokyo.oneinbox.ai/2010-04-01/Accounts/AC…/Calls/1784984351.23.json \
+  --data-urlencode "Status=completed"
+```
+</RequestExample>
+
+---
+
+## List calls
+
+`GET …/Calls.json`
+
+Recent calls for the account (from the CDR). `PageSize` caps the count.
+
+<ResponseExample>
+```json 200
+{ "calls": [
+    { "sid": "1784984351.23", "account_sid": "AC…", "from": "+81345885303",
+      "to": "+819012345678", "status": "completed", "duration": "42",
+      "start_time": "2026-07-25 21:59:11" }
+  ], "page": 0, "page_size": 50 }
+```
+</ResponseExample>
+
+<Note>
+Inline `Twiml` on CreateCall isn't supported — host the TwiML and pass `Url`. `From` should be a number your Routes table can present as caller ID.
+</Note>

@@ -72,6 +72,7 @@
             "pages": [
               "api-reference/introduction",
               "api-reference/account",
+              "api-reference/calls",
               "api-reference/participants",
               "api-reference/recordings"
             ]

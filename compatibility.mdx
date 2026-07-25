@@ -68,11 +68,13 @@ For the OneInbox team: compare the ❌ / ⚠️ rows below against what the prod
 | `GET /Accounts/{sid}.json` | ✅ | Returns AuthToken to owner |
 | `POST /Accounts/{sid}/Tokens/Voice.json` | ✅ | Mints a Voice Access Token (JWT) for a browser agent — the `twilio-token` analog |
 | Conference Participants (all verbs) | ✅ | See [Participants](/api-reference/participants) |
-| `POST /Calls.json` (CreateCall) | ❌ | Outbound origination via REST — not built |
-| `POST /Calls/{sid}.json` (modify a live call) | ❌ | |
+| `POST /Calls.json` (CreateCall) | ✅ | Outbound origination — dials `To`, runs the TwiML at `Url` on answer. See [Calls](/api-reference/calls) |
+| `GET /Calls/{sid}.json` (fetch) | ✅ | Live status via ARI, else final CDR disposition |
+| `POST /Calls/{sid}.json` (modify a live call) | ✅ | `Status=completed` (hang up) or `Url` (redirect to new TwiML) |
+| `GET /Calls.json` (list) | ✅ | Recent calls from the CDR, account-scoped |
 | `/Messages.json` (SMS) | ❌ | Not on the voice stack |
 | `GET /Recordings/{sid}[.mp3\|.wav\|.json]` (download) | ✅ | Basic-auth, account-scoped; mp3 transcoded on demand. This is what `twilio-call-process` fetches. |
-| `GET /Recordings.json` (list) | ❌ | No recording index/list resource yet |
+| `GET /Recordings.json` (list) | ✅ | Account-scoped index (populated going forward) |
 | Number provisioning | ❌ | Managed in the dashboard, not via REST |
 
 ## Platform
@@ -135,7 +137,7 @@ Ordered by leverage-per-effort against what the app actually needs:
 </AccordionGroup>
 
 <Note>
-**Not a dependency:** the app uses **no REST `CreateCall`** (`/Calls.json`) — outbound is browser Voice-SDK or Retell origination. Don't build it unless a new feature needs it.
+The production app doesn't currently use REST `CreateCall` (outbound is browser Voice-SDK or Retell origination) — the [Calls API](/api-reference/calls) is built for Twilio completeness and is available if a new feature needs it.
 </Note>
 
 ## Out of scope for a voice CPaaS (stay on Twilio)
