@@ -20,7 +20,7 @@ For the OneInbox team: compare the ❌ / ⚠️ rows below against what the prod
 | `<Dial><Sip>` (known peer) | ✅ | e.g. Retell AI agent |
 | `<Dial><Sip>` (arbitrary URI) | ❌ | Only configured peers today |
 | `<Dial><Conference>` | ✅ | Full attribute set |
-| `<Dial><Client>` | ❌ | **WebRTC / browser agents — not implemented** |
+| `<Dial><Client>` | ✅ | WebRTC / browser agents — live (OneML Voice SDK over WSS, DTLS-SRTP); rings a registered browser agent, both call directions verified |
 | `<Dial><Queue>` | ❌ | Parsed, not executed |
 | `<Dial record="…">` | ✅ | Call recording — records the bridge (mono mix in v1), fires `recordingStatusCallback`, downloadable as mp3/wav. `record-from-answer[-dual]` / `record-from-ringing[-dual]` all record on connect. |
 | `<Hangup>` | ✅ | |
@@ -65,6 +65,7 @@ For the OneInbox team: compare the ❌ / ⚠️ rows below against what the prod
 | Resource | Status | Notes |
 | --- | --- | --- |
 | `GET /Accounts/{sid}.json` | ✅ | Returns AuthToken to owner |
+| `POST /Accounts/{sid}/Tokens/Voice.json` | ✅ | Mints a Voice Access Token (JWT) for a browser agent — the `twilio-token` analog |
 | Conference Participants (all verbs) | ✅ | See [Participants](/api-reference/participants) |
 | `POST /Calls.json` (CreateCall) | ❌ | Outbound origination via REST — not built |
 | `POST /Calls/{sid}.json` (modify a live call) | ❌ | |
@@ -80,6 +81,7 @@ For the OneInbox team: compare the ❌ / ⚠️ rows below against what the prod
 | Multi-tenant accounts (AccountSid/AuthToken) | ✅ | |
 | Outbound routing via Routes table | ✅ | dial + CLI formatting |
 | Public REST API (via Cloudflare Tunnel) | ✅ | Live at the public base URL; ingress scoped to `/2010-04-01/*` + `/health`, internal endpoints shared-secret guarded |
+| WebRTC browser softphone (Voice SDK + tokens) | ✅ | Asterisk WSS/DTLS-SRTP, OneML Voice SDK, `<Dial><Client>`; both directions live |
 | Billing (CGRateS) | ❌ | Planned |
 | Sub-account model | ❌ | Single account tier today |
 | Recording storage + download | ✅ | Bridge recordings stored on the box, served via the account-scoped download endpoint. Transcription stays app-side (Deepgram). |
@@ -92,14 +94,14 @@ Ordered by leverage-per-effort against what the app actually needs:
   <Step title="Publish the REST API + point one JP DID">
     Expose the REST API (Cloudflare Tunnel) and point a Japan DID's Voice URL at the app's existing inbound function. Small; enables everything downstream.
   </Step>
-  <Step title="Remote <Play> fetch-and-cache ✅ done (+ <Say> TTS next)">
-    Remote-URL `<Play>` is **live** — unblocks all IVR / forwarding / voicemail-prompt flows (the app's prompts are remote MP3s). `<Say>` TTS is the remaining piece of this step.
+  <Step title="Remote <Play> fetch-and-cache ✅ done">
+    Remote-URL `<Play>` is **live** — unblocks all IVR / forwarding / voicemail-prompt flows (the app's prompts are remote MP3s). `<Say>` TTS is deliberately deferred (the app uses `<Play>`).
   </Step>
   <Step title="Recording ✅ done">
     `record` on `<Dial>` (call recording) **and** the standalone `<Record>` verb (voicemail) are **live**, with `recordingStatusCallback` and the authenticated mp3/wav download endpoint the app's processor fetches.
   </Step>
-  <Step title="<Client> / WebRTC platform">
-    The human browser softphone. Largest lift; tackle last as its own sub-project.
+  <Step title="<Client> / WebRTC platform ✅ done">
+    The human browser softphone is **live** — OneML Voice SDK (SIP.js over WSS, DTLS-SRTP/ICE), `<Dial><Client>` executor noun, and Voice Access Tokens (`POST /Accounts/{sid}/Tokens/Voice.json`). Both call directions verified on the production box.
   </Step>
 </Steps>
 
@@ -117,17 +119,17 @@ Ordered by leverage-per-effort against what the app actually needs:
 
     **Remaining niceties:** a `/Recordings.json` list resource; `transcribe`/`trim` on `<Record>` (transcription is app-side).
   </Accordion>
-  <Accordion title="#4 <Client> / WebRTC — the full Twilio Client platform (largest)" icon="globe">
-    Not just media. The app's human-agent stack is the **Twilio Voice SDK** and bundles:
-    - **Media/transport:** WebRTC — Asterisk res_pjsip WSS transport, DTLS-SRTP, ICE, TURN (coturn).
-    - **`<Dial><Client>`** executor noun (ring a registered browser agent, identity `oneinbox-user-{authId}`).
-    - **Voice Access Tokens (JWT)** — the `twilio-token` analog — plus **API Keys** and **TwiML Apps** the token grant references.
-    - **Browser client** — either a Twilio.Device-compatible shim or a shipped OneML Voice SDK (SIP.js/JsSIP over WSS) the app swaps in.
+  <Accordion title="#4 <Client> / WebRTC — the full Twilio Client platform — ✅ DONE" icon="circle-check">
+    The human browser softphone is **live** on the production box, both call directions with encrypted 2-way audio. Shipped:
+    - **Media/transport:** WebRTC — Asterisk res_pjsip WSS transport, DTLS-SRTP, ICE (coturn optional).
+    - **`<Dial><Client>`** executor noun (rings a registered browser agent, identity `oneinbox-user-{authId}`) + browser-originated outbound.
+    - **Voice Access Tokens (JWT)** — `POST /Accounts/{sid}/Tokens/Voice.json` (the `twilio-token` analog; read-only, 404 if unprovisioned).
+    - **Browser client** — a shipped OneML Voice SDK (Twilio.Device-compatible facade, SIP.js over WSS) the app swaps in.
 
-    This is a self-contained sub-project and the biggest remaining lift.
+    Remaining "later" items: surface browser agents in the Peers dashboard UI, and point the real app at the OneML SDK + token URL.
   </Accordion>
-  <Accordion title="#5 Publish the REST API" icon="cloud">
-    Expose the REST API publicly (Cloudflare Tunnel) so the app can change its `api.twilio.com` base URL to OneML. Prerequisite: set the internal shared secret on both services; scope ingress to `/2010-04-01/*` + `/health` only, no interactive Access.
+  <Accordion title="#5 Publish the REST API — ✅ DONE" icon="circle-check">
+    The REST API is **public** (Cloudflare Tunnel) so the app can change its `api.twilio.com` base URL to OneML. Internal endpoints are shared-secret guarded; ingress is scoped to `/2010-04-01/*` + `/health` only, no interactive Access (Basic auth is the auth).
   </Accordion>
 </AccordionGroup>
 
@@ -147,4 +149,4 @@ To point the production OneInbox app at OneML:
 
 - Set a DID's **Voice URL** to the app's existing inbound TwiML function — OneML executes the same TwiML.
 - Ensure the app validates `X-Twilio-Signature` with the **account's OneML AuthToken** (store it where the app reads it, or fetch it from `GET /Accounts/{sid}.json`).
-- Two known in-app dependencies on `api.twilio.com` must be re-pointed at the OneML base when the corresponding features land: **recording download** and any **sub-account token fetch**.
+- Re-point in-app `api.twilio.com` dependencies at the OneML base: **recording download** (live now) and any **sub-account token fetch** (when the sub-account model lands).
