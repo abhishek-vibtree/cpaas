@@ -14,7 +14,7 @@ For the OneInbox team: compare the ❌ / ⚠️ rows below against what the prod
 | Verb / noun | Status | Notes |
 | --- | --- | --- |
 | `<Play>` (built-in audio) | ✅ | Asterisk media names |
-| `<Play>` (remote HTTP audio URL) | ❌ | Fetch-and-cache pending |
+| `<Play>` (remote HTTP audio URL) | ❌ | **Critical blocker** — the app's IVR/voicemail prompts are remote (Supabase-hosted) MP3 URLs, so no menu/voicemail flow is portable until fetch-and-cache lands. Small build, high leverage. |
 | `<Gather>` (DTMF + `action`) | ✅ | numDigits, timeout, finishOnKey, actionOnEmptyResult, nested prompts, barge-in |
 | `<Dial><Number>` | ✅ | Routed via Routes table |
 | `<Dial><Sip>` (known peer) | ✅ | e.g. Retell AI agent |
@@ -83,25 +83,60 @@ For the OneInbox team: compare the ❌ / ⚠️ rows below against what the prod
 | Sub-account model | ❌ | Single account tier today |
 | Recording storage + transcription | ❌ | |
 
+## Recommended migration sequence
+
+Ordered by leverage-per-effort against what the app actually needs:
+
+<Steps>
+  <Step title="Publish the REST API + point one JP DID">
+    Expose the REST API (Cloudflare Tunnel) and point a Japan DID's Voice URL at the app's existing inbound function. Small; enables everything downstream.
+  </Step>
+  <Step title="Remote <Play> fetch-and-cache (+ <Say> TTS)">
+    Unblocks **all** IVR / forwarding / voicemail-prompt flows — the app's prompts are remote MP3s, so nothing with audio is portable without this. Small build, highest leverage.
+  </Step>
+  <Step title="<Record> + recording download">
+    Voicemail capture and call recording + the authenticated recording-download endpoint the app's processor fetches.
+  </Step>
+  <Step title="<Client> / WebRTC platform">
+    The human browser softphone. Largest lift; tackle last as its own sub-project.
+  </Step>
+</Steps>
+
 ## The big remaining items
 
 <AccordionGroup>
-  <Accordion title="#1 <Client> / WebRTC (browser agents)" icon="globe">
-    The production app's human-agent dialer uses the Twilio Voice SDK — the browser originates over WebRTC. OneML has no `<Client>` / WebRTC support yet. This is the largest remaining sub-project (WSS + DTLS-SRTP + TURN + a Voice-SDK-compatible client). Required before human agents can answer/place calls in the browser.
+  <Accordion title="#1 Remote <Play> audio (IVR/voicemail prompts) — CRITICAL, small" icon="volume-high">
+    The app generates menu/voicemail prompts as **remote (Supabase-hosted) MP3 URLs** and plays them with `<Play>`. OneML's `<Play>` only plays local Asterisk media names today, so **every menu and voicemail flow is blocked** until OneML fetches + caches remote audio. This is a small build with outsized impact — it should come first among the verb gaps.
   </Accordion>
-  <Accordion title="#2 <Record> + recordings" icon="microphone">
-    `<Record>`, `record` on `<Dial>`, `RecordingUrl`, `recordingStatusCallback`, recording storage, and a Twilio-compatible recording-download REST endpoint (the app's recording processor fetches recordings from the REST API).
+  <Accordion title="#2 <Say> TTS" icon="comment">
+    A text-to-speech engine for `<Say>` (today parsed but skipped). The app mostly uses `<Play>`, so impact is limited to bare `<Say>` fallbacks — but pair it with #1 so no prompt path goes silent.
   </Accordion>
-  <Accordion title="#3 <Say> TTS and <Play> remote audio" icon="volume-high">
-    A text-to-speech engine for `<Say>`, and a fetch-and-cache step so `<Play>` can play remote audio URLs. Both are parsed today but skipped.
+  <Accordion title="#3 <Record> + recordings" icon="microphone">
+    `<Record>`, `record` on `<Dial>` (the app uses `record="record-from-answer-dual"`), `RecordingUrl`, `recordingStatusCallback`, recording storage, and a Twilio-compatible recording-download REST endpoint (the app's `twilio-call-process` fetches the mp3 and transcribes via Deepgram).
   </Accordion>
-  <Accordion title="#4 Publish the REST API" icon="cloud">
-    Expose the REST API publicly (Cloudflare Tunnel) so the app can change its `api.twilio.com` base URL to OneML. Prerequisite: set the internal shared secret on both services; scope ingress to the public REST paths only.
+  <Accordion title="#4 <Client> / WebRTC — the full Twilio Client platform (largest)" icon="globe">
+    Not just media. The app's human-agent stack is the **Twilio Voice SDK** and bundles:
+    - **Media/transport:** WebRTC — Asterisk res_pjsip WSS transport, DTLS-SRTP, ICE, TURN (coturn).
+    - **`<Dial><Client>`** executor noun (ring a registered browser agent, identity `oneinbox-user-{authId}`).
+    - **Voice Access Tokens (JWT)** — the `twilio-token` analog — plus **API Keys** and **TwiML Apps** the token grant references.
+    - **Browser client** — either a Twilio.Device-compatible shim or a shipped OneML Voice SDK (SIP.js/JsSIP over WSS) the app swaps in.
+
+    This is a self-contained sub-project and the biggest remaining lift.
   </Accordion>
-  <Accordion title="#5 Outbound REST CreateCall" icon="phone-arrow-up-right">
-    `POST /Calls.json` for standalone outbound origination (if the app needs server-initiated calls beyond Retell/Voice-SDK). The routing layer already exists; the resource does not.
+  <Accordion title="#5 Publish the REST API" icon="cloud">
+    Expose the REST API publicly (Cloudflare Tunnel) so the app can change its `api.twilio.com` base URL to OneML. Prerequisite: set the internal shared secret on both services; scope ingress to `/2010-04-01/*` + `/health` only, no interactive Access.
   </Accordion>
 </AccordionGroup>
+
+<Note>
+**Not a dependency:** the app uses **no REST `CreateCall`** (`/Calls.json`) — outbound is browser Voice-SDK or Retell origination. Don't build it unless a new feature needs it.
+</Note>
+
+## Out of scope for a voice CPaaS (stay on Twilio)
+
+- **SMS** (`/Messages.json`, WhatsApp) — messaging plane, not voice.
+- **US/CA number search & purchase** (`AvailablePhoneNumbers`, `IncomingPhoneNumbers`) — OneML inventory is Japan, managed in the dashboard.
+- **Sub-account + Elastic SIP Trunk provisioning** (`Accounts.json`, `Keys.json`, `Applications.json`, `trunking.twilio.com`) — single-account tier today; a business/scope decision, not just code.
 
 ## App-side integration notes
 
