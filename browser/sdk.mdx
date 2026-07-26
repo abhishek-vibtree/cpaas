@@ -1,44 +1,87 @@
 ---
 title: "Voice SDK"
-description: "oneml-voice.js — a Twilio.Device-shaped browser softphone. Install, quickstart, full Device and Call reference, a React example, and troubleshooting."
+description: "Install @oneinboxai/voice-sdk, register a browser, and take and place calls. Quickstart, full Device and Call reference, React hook, and troubleshooting."
 ---
 
-`oneml-voice.js` is a browser softphone with the same surface as Twilio's Voice
-SDK, backed by SIP over WebSocket to your own switch. UMD, no build step —
-it exposes `window.OneMLVoice`.
+A browser softphone with the same surface as Twilio's Voice SDK, backed by SIP
+over WebSocket to your own switch. If your app already drives Twilio, you swap
+one import and keep your call-control code.
 
-```js
-const device = new OneMLVoice.Device(token);
-device.on('incoming', call => call.accept());
+<CodeGroup>
+
+```bash npm
+npm install @oneinboxai/voice-sdk
+```
+
+```bash pnpm
+pnpm add @oneinboxai/voice-sdk
+```
+
+```bash yarn
+yarn add @oneinboxai/voice-sdk
+```
+
+</CodeGroup>
+
+## Quickstart
+
+```ts
+import { Device } from '@oneinboxai/voice-sdk';
+
+// Mint the token on YOUR server — never in the browser.
+const { token } = await fetch('/api/voice-token').then((r) => r.json());
+
+const device = new Device(token);
+
+device.on('incoming', (call) => {
+  console.log('call from', call.parameters.From);
+  call.accept();
+});
+
 await device.register();
 
+// Place a call
 const call = await device.connect({ params: { To: '+819012345678' } });
-call.mute(true);
-call.disconnect();
+call.on('accept', () => console.log('connected'));
+call.on('disconnect', () => console.log('ended'));
 ```
 
-## Install
+That is the whole integration. Everything below is detail.
 
-Serve two files from your app and load them **before** your bundle — the SDK
-throws immediately if SIP.js isn't already there:
+<Note>
+  The package ships TypeScript declarations, so `Device`, `Call` and every event
+  are typed and autocomplete in your editor. No `@types` package needed.
+</Note>
+
+## Without a bundler
+
+One self-contained file, SIP.js included — nothing else to load:
 
 ```html
-<script src="/sip.js"></script>          <!-- SIP.js UMD build (window.SIP) -->
-<script src="/oneml-voice.js"></script>  <!-- OneML Voice SDK -->
+<script src="https://unpkg.com/@oneinboxai/voice-sdk"></script>
+<script>
+  const device = new OneMLVoice.Device(token);
+</script>
 ```
-
-In Vite, Next or Lovable projects, put both in `public/` and add the tags to
-`index.html`.
 
 ## Device
 
-### `new OneMLVoice.Device(token, options?)`
+### `new Device(token, options?)`
 
 <ParamField path="token" type="string" required>
   A Voice access token. See [Access tokens](/browser/tokens).
 </ParamField>
 <ParamField path="options.audioElement" type="HTMLAudioElement">
   Where remote audio is played. Defaults to a hidden `<audio>` appended to the page — pass your own if autoplay policy blocks it.
+</ParamField>
+<ParamField path="options.tokenRefreshOffset" type="number" default="30">
+  Seconds before expiry at which `tokenWillExpire` fires.
+</ParamField>
+<ParamField path="options.mediaConstraints" type="MediaStreamConstraints">
+  Microphone constraints for every call. Defaults to `{ audio: true, video: false }`.
+</ParamField>
+<ParamField path="options.logger" type="Logger">
+  Pass `console` to see SDK diagnostics. Silent by default.
 </ParamField>
 
 ### Properties
@@ -47,7 +90,7 @@ In Vite, Next or Lovable projects, put both in `public/` and add the tags to
   `unregistered` · `registering` · `registered` · `destroyed`
 </ParamField>
 <ParamField path="identity" type="string">
-  The SIP identity from the token, set once registered.
+  The SIP identity from the token — the string `<Client>` dials.
 </ParamField>
 <ParamField path="calls" type="Call[]">
   Live calls on this device.
@@ -55,16 +98,16 @@ In Vite, Next or Lovable projects, put both in `public/` and add the tags to
 
 ### Methods
 
-<ParamField path="register()" type="Promise">
+<ParamField path="register()" type="Promise<void>">
   Connects and registers. Rejects — and emits `error` — if the credential is refused.
 </ParamField>
 <ParamField path="connect({ params })" type="Promise<Call>">
-  Places a call. `params.To` is what gets dialled; every other key travels as an `X-OneML-<key>` SIP header your webhook can read.
+  Places a call. `params.To` is handed to your Voice URL; every other key travels as an `X-OneML-<key>` SIP header your webhook can read.
 </ParamField>
 <ParamField path="updateToken(token)" type="void">
   Swaps in a fresh token and reschedules the expiry warning.
 </ParamField>
-<ParamField path="destroy()" type="Promise">
+<ParamField path="destroy()" type="Promise<void>">
   Unregisters and tears down. Call it when the component unmounts.
 </ParamField>
 
@@ -77,7 +120,7 @@ In Vite, Next or Lovable projects, put both in `public/` and add the tags to
 | `unregistered` | device | the registration lapsed |
 | `incoming` | `Call` | somebody is calling this user |
 | `tokenWillExpire` | device | 30 seconds before the token expires |
-| `error` | `{ message, original }` | transport or registration failure |
+| `error` | `VoiceError`, device | transport or registration failure |
 | `destroyed` | device | teardown finished |
 
 ## Call
@@ -93,14 +136,19 @@ In Vite, Next or Lovable projects, put both in `public/` and add the tags to
 <ParamField path="disconnect()" type="Call">
   Hangs up, whether ringing or established.
 </ParamField>
-<ParamField path="mute(muted)" type="Call">
+<ParamField path="mute(muted?)" type="Call">
   Mutes or unmutes the microphone.
 </ParamField>
 <ParamField path="isMuted()" type="boolean" />
+<ParamField path="sendDigits(digits)" type="Call">
+  Sends DTMF on an established call.
+</ParamField>
 
 ### Properties and events
 
-`parameters` holds `{ From, To }`; `customParameters` holds any custom values.
+`parameters` holds `{ From, To, CallSid? }`; `customParameters` is a `Map` of
+any custom values; `direction` is `INCOMING` or `OUTGOING`; `status` is
+`pending`, `open` or `closed`.
 
 | Event | Fires when |
 | --- | --- |
@@ -111,10 +159,10 @@ In Vite, Next or Lovable projects, put both in `public/` and add the tags to
 
 ## Handling calls
 
-```js
-device.on('incoming', call => {
+```ts
+device.on('incoming', (call) => {
   showIncomingUI(call.parameters.From);
-  call.on('accept',     () => setState('on a call'));
+  call.on('accept', () => setState('on a call'));
   call.on('disconnect', () => setState('idle'));
   // call.accept() or call.reject()
 });
@@ -122,42 +170,71 @@ device.on('incoming', call => {
 
 Pass context to your Voice URL as extra params:
 
-```js
+```ts
 device.connect({ params: { To: '+819012345678', TicketId: 'T-4417' } });
 // -> X-OneML-TicketId: T-4417
 ```
 
+## Errors
+
+Every error the SDK emits or throws is a `VoiceError` with a stable `code`, so
+you can branch on the cause instead of matching message text.
+
+```ts
+device.on('error', (err) => {
+  if (err.code === 'registration_failed') signInAgain();
+});
+```
+
+| Code | Meaning |
+| --- | --- |
+| `invalid_token` | Not a JWT, or it carries no voice grant |
+| `token_expired` | The token expired before it was used |
+| `registration_failed` | The credential was refused — unprovisioned, disabled, or revoked |
+| `transport_error` | The WebSocket could not be opened, or dropped |
+| `call_failed` | The call could not be placed |
+| `media_error` | Microphone permission denied, or no input device |
+| `invalid_state` | Wrong state for the call — e.g. `connect()` before `register()` |
+
 ## React
 
 ```tsx
-export function useSoftphone() {
-  const device  = useRef<any>(null);
-  const session = useRef<string | undefined>();   // memory only — never localStorage
+import { useEffect, useRef, useState } from 'react';
+import { Device, type Call } from '@oneinboxai/voice-sdk';
 
-  const mint = async () => {
-    const res  = await fetch('/api/voice-token',
-      { method: 'POST', body: JSON.stringify({ session: session.current }) });
-    const data = await res.json();
-    session.current = data.session;
-    return data.token;
-  };
+export function useSoftphone() {
+  const device = useRef<Device | null>(null);
+  const session = useRef<string | undefined>(undefined); // memory only — never localStorage
+  const [incoming, setIncoming] = useState<Call | null>(null);
 
   useEffect(() => {
-    let d: any;
-    (async () => {
-      d = new (window as any).OneMLVoice.Device(await mint());
-      d.on('incoming', (call: any) => setIncoming(call));
-      d.on('tokenWillExpire', async () => d.updateToken(await mint()));
-      d.on('error', console.error);
+    const mint = async () => {
+      const res = await fetch('/api/voice-token', {
+        method: 'POST',
+        body: JSON.stringify({ session: session.current }),
+      });
+      const data = await res.json();
+      session.current = data.session;
+      return data.token as string;
+    };
+
+    let d: Device | undefined;
+    void (async () => {
+      d = new Device(await mint());
+      d.on('incoming', setIncoming);
+      d.on('tokenWillExpire', async () => d!.updateToken(await mint()));
+      d.on('error', (err) => console.error(err.code, err.message));
       await d.register();
       device.current = d;
     })();
-    return () => { d?.destroy(); };
+
+    return () => void d?.destroy();
   }, []);
 
   return {
-    dial:   (to: string) => device.current.connect({ params: { To: to } }),
-    hangup: () => device.current.calls[0]?.disconnect(),
+    incoming,
+    dial: (to: string) => device.current?.connect({ params: { To: to } }),
+    hangup: () => device.current?.calls[0]?.disconnect(),
   };
 }
 ```
@@ -208,10 +285,9 @@ dashboard must be that same id.
 
 | Symptom | Cause |
 | --- | --- |
-| `SIP.js (global "SIP") must be loaded first` | Script order — SIP.js must come before the SDK. |
-| `register()` rejects, `error` emitted | The credential was refused: the user isn't provisioned, is disabled, or the sign-in was revoked. Mint a fresh token and build a new `Device`. |
+| `register()` rejects with `registration_failed` | The credential was refused: the user isn't provisioned, is disabled, or the sign-in was revoked. Mint a fresh token and build a new `Device`. |
 | Registers, but `incoming` never fires | Your call flow isn't dialling `<Client>`, the user is signed out, or their ring setting is "latest only" and this isn't the newest sign-in. |
-| `connect()` rejects | No Voice URL on the user or the account, or the webhook returned no usable OneML. |
+| `connect()` rejects with `call_failed` | No Voice URL on the user or the account, or the webhook returned no usable OneML. |
 | Connected but silent | Autoplay policy blocked the audio element — pass your own `audioElement` and start it from a user gesture. |
 | Works on wifi, fails on a corporate network | TURN unreachable. Check UDP 3478 and TCP 5349. |
 | A new sign-in kicked an older one | The user's device limit — raise it in the dashboard. |
@@ -221,5 +297,6 @@ dashboard must be that same id.
 - **Audio only** — no video, no SMS.
 - **One `Device` per page.** Two means two sign-ins against the user's limit.
 - Custom parameters travel as SIP headers, so keep them short and ASCII.
-- `updateToken()` swaps the token in place; it cannot re-authenticate a
-  registration whose credential has changed.
+- `updateToken()` swaps the token in place; a token carrying a *different*
+  credential cannot re-authenticate an existing registration — build a new
+  `Device`.
