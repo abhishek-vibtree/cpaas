@@ -2,7 +2,7 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
   "name": "OneML",
-  "description": "OneML — a Twilio-compatible CPaaS for OneInbox, running on Asterisk/ARI. A strict TwiML superset: change the API domain and your existing voice app works.",
+  "description": "OneML \u2014 a Twilio-compatible CPaaS for OneInbox, running on Asterisk/ARI. A strict TwiML superset: change the API domain and your existing voice app works.",
   "colors": {
     "primary": "#16A34A",
     "light": "#4ADE80",
@@ -54,6 +54,14 @@
             "group": "Outbound",
             "pages": [
               "outbound/routing"
+            ]
+          },
+          {
+            "group": "Browser calling",
+            "pages": [
+              "browser/overview",
+              "browser/tokens",
+              "browser/sdk"
             ]
           },
           {

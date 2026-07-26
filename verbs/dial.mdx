@@ -58,6 +58,27 @@ Dial a SIP destination. A URI whose host resolves to a **configured peer** (for 
 </Response>
 ```
 
+### `<Client>`
+
+Ring a user's browser softphone. The value is their identity — the **Username**
+from the dashboard, which the SDK signs in as.
+
+```xml
+<Response>
+  <Dial timeout="20" action="https://your-app.example/no-answer">
+    <Client>mari.tanaka</Client>
+  </Dial>
+</Response>
+```
+
+Every device that user is signed in on rings at once and the first to answer
+wins; a per-user setting can restrict this to their most recent sign-in. If they
+are signed out — or signed in under a different account — the dial fails like an
+unreachable phone, so your `action` URL runs and you can fall through to
+voicemail or a mobile.
+
+See [Browser calling](/browser/overview) for the SDK and tokens.
+
 ### `<Conference>`
 
 Put the caller into a named room. See the dedicated [Conference](/verbs/conference) page.
@@ -86,5 +107,5 @@ v1 records a **mono** mix of the call (both parties combined) — suitable for t
 </Note>
 
 <Note>
-**Not yet supported on `<Dial>`:** the `<Client>` noun (WebRTC browser agents) and the `<Queue>` noun are parsed but not acted on. Track these on [Compatibility](/compatibility).
+**Not yet supported on `<Dial>`:** the `<Queue>` noun is parsed but not acted on. Track it on [Compatibility](/compatibility).
 </Note>

@@ -1,0 +1,225 @@
+---
+title: "Voice SDK"
+description: "oneml-voice.js — a Twilio.Device-shaped browser softphone. Install, quickstart, full Device and Call reference, a React example, and troubleshooting."
+---
+
+`oneml-voice.js` is a browser softphone with the same surface as Twilio's Voice
+SDK, backed by SIP over WebSocket to your own switch. UMD, no build step —
+it exposes `window.OneMLVoice`.
+
+```js
+const device = new OneMLVoice.Device(token);
+device.on('incoming', call => call.accept());
+await device.register();
+
+const call = await device.connect({ params: { To: '+819012345678' } });
+call.mute(true);
+call.disconnect();
+```
+
+## Install
+
+Serve two files from your app and load them **before** your bundle — the SDK
+throws immediately if SIP.js isn't already there:
+
+```html
+<script src="/sip.js"></script>          <!-- SIP.js UMD build (window.SIP) -->
+<script src="/oneml-voice.js"></script>  <!-- OneML Voice SDK -->
+```
+
+In Vite, Next or Lovable projects, put both in `public/` and add the tags to
+`index.html`.
+
+## Device
+
+### `new OneMLVoice.Device(token, options?)`
+
+<ParamField path="token" type="string" required>
+  A Voice access token. See [Access tokens](/browser/tokens).
+</ParamField>
+<ParamField path="options.audioElement" type="HTMLAudioElement">
+  Where remote audio is played. Defaults to a hidden `<audio>` appended to the page — pass your own if autoplay policy blocks it.
+</ParamField>
+
+### Properties
+
+<ParamField path="state" type="string">
+  `unregistered` · `registering` · `registered` · `destroyed`
+</ParamField>
+<ParamField path="identity" type="string">
+  The SIP identity from the token, set once registered.
+</ParamField>
+<ParamField path="calls" type="Call[]">
+  Live calls on this device.
+</ParamField>
+
+### Methods
+
+<ParamField path="register()" type="Promise">
+  Connects and registers. Rejects — and emits `error` — if the credential is refused.
+</ParamField>
+<ParamField path="connect({ params })" type="Promise<Call>">
+  Places a call. `params.To` is what gets dialled; every other key travels as an `X-OneML-<key>` SIP header your webhook can read.
+</ParamField>
+<ParamField path="updateToken(token)" type="void">
+  Swaps in a fresh token and reschedules the expiry warning.
+</ParamField>
+<ParamField path="destroy()" type="Promise">
+  Unregisters and tears down. Call it when the component unmounts.
+</ParamField>
+
+### Events
+
+| Event | Argument | Fires when |
+| --- | --- | --- |
+| `registering` | device | `register()` started |
+| `registered` | device | reachable for inbound calls |
+| `unregistered` | device | the registration lapsed |
+| `incoming` | `Call` | somebody is calling this user |
+| `tokenWillExpire` | device | 30 seconds before the token expires |
+| `error` | `{ message, original }` | transport or registration failure |
+| `destroyed` | device | teardown finished |
+
+## Call
+
+### Methods
+
+<ParamField path="accept()" type="Call">
+  Answers an incoming call. No-op on an outbound one.
+</ParamField>
+<ParamField path="reject()" type="Call">
+  Declines an incoming call before answering.
+</ParamField>
+<ParamField path="disconnect()" type="Call">
+  Hangs up, whether ringing or established.
+</ParamField>
+<ParamField path="mute(muted)" type="Call">
+  Mutes or unmutes the microphone.
+</ParamField>
+<ParamField path="isMuted()" type="boolean" />
+
+### Properties and events
+
+`parameters` holds `{ From, To }`; `customParameters` holds any custom values.
+
+| Event | Fires when |
+| --- | --- |
+| `accept` | media is up — the conversation started |
+| `disconnect` | the call ended, from either side |
+| `reject` | you declined an incoming call |
+| `mute` | `(muted, call)` after `mute()` |
+
+## Handling calls
+
+```js
+device.on('incoming', call => {
+  showIncomingUI(call.parameters.From);
+  call.on('accept',     () => setState('on a call'));
+  call.on('disconnect', () => setState('idle'));
+  // call.accept() or call.reject()
+});
+```
+
+Pass context to your Voice URL as extra params:
+
+```js
+device.connect({ params: { To: '+819012345678', TicketId: 'T-4417' } });
+// -> X-OneML-TicketId: T-4417
+```
+
+## React
+
+```tsx
+export function useSoftphone() {
+  const device  = useRef<any>(null);
+  const session = useRef<string | undefined>();   // memory only — never localStorage
+
+  const mint = async () => {
+    const res  = await fetch('/api/voice-token',
+      { method: 'POST', body: JSON.stringify({ session: session.current }) });
+    const data = await res.json();
+    session.current = data.session;
+    return data.token;
+  };
+
+  useEffect(() => {
+    let d: any;
+    (async () => {
+      d = new (window as any).OneMLVoice.Device(await mint());
+      d.on('incoming', (call: any) => setIncoming(call));
+      d.on('tokenWillExpire', async () => d.updateToken(await mint()));
+      d.on('error', console.error);
+      await d.register();
+      device.current = d;
+    })();
+    return () => { d?.destroy(); };
+  }, []);
+
+  return {
+    dial:   (to: string) => device.current.connect({ params: { To: to } }),
+    hangup: () => device.current.calls[0]?.disconnect(),
+  };
+}
+```
+
+<Warning>
+  Keep the token and `session` in memory. Persisting them to `localStorage`
+  leaves a working credential on disk for anything that can read it.
+</Warning>
+
+### Minting from a Supabase Edge Function
+
+```ts
+import { createClient } from 'jsr:@supabase/supabase-js@2'
+
+const CORS = { 'Access-Control-Allow-Origin': '*',
+               'Access-Control-Allow-Headers': 'authorization, content-type' }
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+
+  // The identity comes from the VERIFIED session, never the request body —
+  // otherwise any signed-in user could mint a token for somebody else.
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!,
+    { global: { headers: { Authorization: req.headers.get('Authorization')! } } })
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return new Response('unauthorized', { status: 401, headers: CORS })
+
+  const { session } = await req.json().catch(() => ({}))
+  const sid  = Deno.env.get('ONEINBOX_ACCOUNT_SID')!
+  const body = new URLSearchParams({ identity: user.id })
+  if (session) body.set('session', session)
+
+  const r = await fetch(
+    `${Deno.env.get('ONEINBOX_API_BASE')}/2010-04-01/Accounts/${sid}/Tokens/Voice.json`,
+    { method: 'POST',
+      headers: { Authorization: 'Basic ' + btoa(`${sid}:${Deno.env.get('ONEINBOX_AUTH_TOKEN')}`) },
+      body })
+  return new Response(await r.text(),
+    { status: r.status, headers: { ...CORS, 'Content-Type': 'application/json' } })
+})
+```
+
+Because this sends `user.id` as the identity, each user's **Username** in the
+dashboard must be that same id.
+
+## Troubleshooting
+
+| Symptom | Cause |
+| --- | --- |
+| `SIP.js (global "SIP") must be loaded first` | Script order — SIP.js must come before the SDK. |
+| `register()` rejects, `error` emitted | The credential was refused: the user isn't provisioned, is disabled, or the sign-in was revoked. Mint a fresh token and build a new `Device`. |
+| Registers, but `incoming` never fires | Your call flow isn't dialling `<Client>`, the user is signed out, or their ring setting is "latest only" and this isn't the newest sign-in. |
+| `connect()` rejects | No Voice URL on the user or the account, or the webhook returned no usable OneML. |
+| Connected but silent | Autoplay policy blocked the audio element — pass your own `audioElement` and start it from a user gesture. |
+| Works on wifi, fails on a corporate network | TURN unreachable. Check UDP 3478 and TCP 5349. |
+| A new sign-in kicked an older one | The user's device limit — raise it in the dashboard. |
+
+## Limits
+
+- **Audio only** — no video, no SMS.
+- **One `Device` per page.** Two means two sign-ins against the user's limit.
+- Custom parameters travel as SIP headers, so keep them short and ASCII.
+- `updateToken()` swaps the token in place; it cannot re-authenticate a
+  registration whose credential has changed.
