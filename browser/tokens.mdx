@@ -1,0 +1,108 @@
+---
+title: "Access tokens"
+description: "Short-lived tokens authorise one browser sign-in. Mint them on your server, refresh them before they expire, and revoke them to sign a user out."
+---
+
+A **Voice access token** is a signed JWT that authorises one browser sign-in. It
+carries everything the SDK needs — the WebSocket URL, the SIP credential for
+that sign-in, and ICE servers — so the browser never holds a long-lived secret.
+
+<Warning>
+  Mint tokens on your **server**. The request authenticates with your AccountSid
+  and AuthToken; those must never reach the browser.
+</Warning>
+
+## Mint a token
+
+```http
+POST /2010-04-01/Accounts/{AccountSid}/Tokens/Voice.json
+Authorization: Basic base64(AccountSid:AuthToken)
+Content-Type: application/x-www-form-urlencoded
+```
+
+<ParamField body="identity" type="string" required>
+  The user's **Username** as created in the dashboard. The SIP identity becomes `oneinbox-user-<identity>`, which is what `<Client>` dials.
+</ParamField>
+<ParamField body="session" type="string">
+  An existing sign-in to extend, from a previous response. Omit it to start a new sign-in.
+</ParamField>
+
+```bash
+curl -u ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx:your_auth_token \
+  -d "identity=mari.tanaka" \
+  https://cpaastokyo.oneinbox.ai/2010-04-01/Accounts/ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/Tokens/Voice.json
+```
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…",
+  "identity": "oneinbox-user-mari.tanaka",
+  "ttl": 3600,
+  "session": "oneinbox-user-mari.tanaka~9f2c41ab"
+}
+```
+
+<ParamField path="token" type="string">
+  Pass to `new OneMLVoice.Device(token)`.
+</ParamField>
+<ParamField path="identity" type="string">
+  The SIP identity — the string `<Client>` dials.
+</ParamField>
+<ParamField path="ttl" type="integer">
+  Seconds until the token expires.
+</ParamField>
+<ParamField path="session" type="string">
+  This sign-in. Send it back as `session` when refreshing.
+</ParamField>
+
+A `404` means the user isn't provisioned for that account — create them in the
+dashboard first.
+
+## Refresh before expiry
+
+The SDK emits `tokenWillExpire` 30 seconds before the token runs out. Mint
+another one **passing the `session` back**:
+
+```js
+device.on('tokenWillExpire', async () => {
+  device.updateToken(await mintToken(session));   // same session
+});
+```
+
+Refreshing with the session keeps the same SIP credential, so the registration is
+untouched and a call in progress carries on.
+
+<Warning>
+  Refreshing **without** `session` starts a *new* sign-in. Every refresh would
+  then count against the user's device limit and push their own older sign-ins
+  out. Always pass it back.
+</Warning>
+
+## Sign-ins and device limits
+
+Each token is a sign-in, and each user has a limit on how many they may hold at
+once (set per user in the dashboard, default 2). Signing in beyond the limit
+ends their **oldest** sign-in rather than refusing the new one — so a user is
+never locked out of their own account by an old browser tab.
+
+The same page shows where they are signed in from — address, device and when —
+live and historical.
+
+## Revoking
+
+A sign-in stops working when any of these happen:
+
+- it **expires** and isn't refreshed
+- an admin **signs the user out** (all devices) or disables/deletes them
+- the user's secret is **rotated**
+- their **username is changed**, since the identity is derived from it
+
+Revoking is immediate: the credential is deleted, so the browser cannot
+re-register. A call already in progress is not cut off — expiry ends the ability
+to register and start new calls.
+
+<Note>
+  If a session was revoked, `updateToken()` cannot rescue the existing
+  registration — the credential is gone. Mint a fresh token and create a new
+  `Device`.
+</Note>

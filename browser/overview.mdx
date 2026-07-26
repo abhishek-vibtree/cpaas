@@ -1,0 +1,98 @@
+---
+title: "Browser calling"
+description: "Put a softphone in your web app — the OneML Voice SDK registers a browser as a user, takes inbound calls from <Dial><Client>, and places outbound calls through your own webhook."
+---
+
+Browser calling turns a page in your app into a phone. A signed-in user gets a
+short-lived **access token**, the SDK registers their browser over WebRTC, and
+from then on they can take and place calls like any other endpoint on your
+account.
+
+If your app already uses Twilio's Voice SDK, the surface is the same: `Device`,
+`Call`, `device.connect()`, `call.accept()`. You swap one import.
+
+## The pieces
+
+<CardGroup cols={2}>
+  <Card title="A user" icon="user">
+    Created in the dashboard under **Company → Users → Add user → Web**. Their
+    **Username** becomes the identity `oneinbox-user-<username>`.
+  </Card>
+  <Card title="An access token" icon="key">
+    Minted by **your** backend from `/Tokens/Voice.json` and handed to the
+    browser. Short-lived, and revocable. See [Access tokens](/browser/tokens).
+  </Card>
+  <Card title="The Voice SDK" icon="phone">
+    `oneml-voice.js` — a `Twilio.Device`-shaped facade over SIP.js.
+    See [Voice SDK](/browser/sdk).
+  </Card>
+  <Card title="A Voice URL" icon="link">
+    Your webhook, fetched when the user places a call. It decides where that
+    call actually goes.
+  </Card>
+</CardGroup>
+
+## How a call reaches the browser
+
+Dial the user's identity from any OneML program — an inbound number's webhook,
+an IVR branch, wherever:
+
+```xml
+<Response>
+  <Dial>
+    <Client>mari.tanaka</Client>
+  </Dial>
+</Response>
+```
+
+Every device that user is signed in on rings at once, and the first to answer
+wins; the rest stop ringing. (A per-user setting can restrict this to the most
+recent sign-in instead.) If they are signed out, the dial fails like an
+unreachable phone and your `action` URL runs — so you can fall through to
+voicemail or a mobile.
+
+## How a call leaves the browser
+
+`device.connect({ params: { To: '+819012345678' } })` does **not** dial `To`
+directly. OneML fetches the user's **Voice URL** and runs what it returns, with
+`To` passed through as a parameter — so the decision of what a user may dial,
+and with which caller ID, stays on your server:
+
+```xml
+<Response>
+  <Dial callerId="+815012345678">
+    <Number>{{To}}</Number>
+  </Dial>
+</Response>
+```
+
+Set it per user in the dashboard (**Users → Edit → Voice URL**); users without
+one fall back to the account's.
+
+## Requirements
+
+<ParamField path="Page origin" type="HTTPS">
+  Microphone access requires a secure context. `localhost` also works for development.
+</ParamField>
+<ParamField path="Network" type="WSS + TURN">
+  `wss://<your-rtc-domain>:8089` must be reachable, plus TURN (UDP 3478 / TCP 5349) for users behind restrictive firewalls.
+</ParamField>
+<ParamField path="Browsers" type="current">
+  Any current Chrome, Edge, Safari or Firefox. Audio only — no video.
+</ParamField>
+
+<Note>
+  Media is encrypted end to end with DTLS-SRTP, and calls stay on your own
+  infrastructure — the browser talks to your switch, not to a third party.
+</Note>
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Access tokens" icon="key" href="/browser/tokens">
+    Minting, refreshing, device limits and revoking a sign-in.
+  </Card>
+  <Card title="Voice SDK" icon="code" href="/browser/sdk">
+    Install, `Device` and `Call` reference, React example, troubleshooting.
+  </Card>
+</CardGroup>
